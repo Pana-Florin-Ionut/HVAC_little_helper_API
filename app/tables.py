@@ -1,4 +1,5 @@
 from psycopg2 import sql
+from sqlalchemy import literal_column, text
 
 
 def create_clients_table():
@@ -48,19 +49,22 @@ def create_offer_table(table_name):
 
 
 def insert_offer_row(table_name, columns, values):
-    """ Insert a row in offer table. 
+    """Insert a row in offer table.
     Required table name, columns, values
     It does not need id
     """
-    print(table_name)
-    print(columns)
-    print(values)
-    # return """INSERT INTO {table_name} ({columns}) VALUES ({values})""".format(table_name=sql.Identifier(table_name), columns=sql.SQL(', ').join(map(sql.Identifier, columns)), values=sql.SQL(', ').join(map(sql.Literal, values)))
-    return sql.SQL(
-        """INSERT INTO {table_name} ({columns}) VALUES {values}""".format(
-            table_name=table_name,
-            # columns=("client_id, project_id, offer_name"),
-            columns=", ".join(str(x) for x in columns if x != "id"),
-            values=tuple(str(x) for x in values if x != None),
-        )
+    return sql.SQL("""INSERT INTO {table_name} ({columns}) VALUES ({values})""").format(
+        table_name=sql.Identifier(table_name),
+        columns=sql.SQL(", ").join(map(sql.Identifier, columns)),
+        values=sql.SQL(", ").join(map(sql.Literal, values)),
     )
+
+
+def get_offer(offer_name):
+    return sql.SQL("""SELECT * FROM offers WHERE offer_name = {offer_name}""").format(
+        offer_name=sql.Literal(offer_name)
+    )
+
+
+def get_offers():
+    return text("""SELECT * FROM offers""")

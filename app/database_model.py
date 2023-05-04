@@ -22,10 +22,7 @@ class Database:
 
     def execute(self, query):
         with self.cursor() as cursor:
-            # try:
             print(query)
             cursor.execute(query)
             self.connection.commit()
-        # except  Exception as e:
-        #     print(e)
-        #     return e
+

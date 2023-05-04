@@ -7,12 +7,12 @@ from psycopg2.extras import RealDictCursor
 from sqlalchemy.orm import Session
 from . import table_models_required, table_models_optional
 from .database import engine, get_db
-from sqlalchemy.sql.expression import text
-from . import database_connection
 from . import tables
 from .database_model import Database as db
 from . import db_test
 from .database_connection import conn
+from pydantic import parse_obj_as
+from typing import List
 
 db = db(conn)
 
@@ -46,9 +46,25 @@ def find_offer(id):
 app = FastAPI()
 
 
-@app.get("/")
-async def root():
-    return {"message": "Hello world"}
+@app.get("/", response_model=List[db_test.OffersRetrieve])
+async def root(get_db: Session = Depends(get_db), response = db_test.OffersRetrieve):
+    # print(list(get_db.execute(tables.get_offers())))
+    response = get_db.execute(tables.get_offers())
+    response_dict = response.mappings().all() #get response as a list of dictionaries
+    # print(response_dict)
+    # for r in response_dict:
+    #     print(db_test.OffersRetrieve(**r))
+    # offers = []
+    # for r in response:
+    #     id = r[0]
+    #     client_id = r[1]
+    #     project_id = r[2]
+    #     offer_name = r[3]
+    #     new = db_test.OffersRetrieve(id=id, client_id=client_id, project_id=project_id, offer_name=offer_name)
+    #     offers.append(new)
+    #     # print(new)
+    # return offers
+    return response_dict
 
 
 @app.get("/offers")
@@ -56,7 +72,11 @@ async def offers():
     return {"message": "Offers"}
 
 
-@app.post("/offers/", status_code=status.HTTP_201_CREATED, response_model=db_test.OffersRetrieve)
+@app.post(
+    "/offers/",
+    status_code=status.HTTP_201_CREATED,
+    # response_model=db_test.OffersRetrieve,
+)
 async def create_offer(offer: db_test.OffersCreate):
     print(offer.offer_name)
     print(offer)
@@ -74,11 +94,7 @@ async def create_offer(offer: db_test.OffersCreate):
         # db.create_table(tables.create_offer_table(offer_name))
         return {"New offer entry": offer_name}
     except Exception as e:
-        # if f'relation "{offer_name}" already exists\n' in str(e):
-        #     conn.rollback()
-        #     raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-        #                         detail=f"Offer already exists")
-        #     # return {"message": "Offer already exists"}
+        print(f"Error:  {e}")
         if (
             f'duplicate key value violates unique constraint "offers_offer_name_key"\nDETAIL:  Key (offer_name)=({offer_name}) already exists.\n'
             in str(e)
@@ -90,7 +106,7 @@ async def create_offer(offer: db_test.OffersCreate):
             # return {"message": "Offer already exists"}
 
         conn.rollback()
-        return {"message": f"Error occured: {e}"}
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Bad request")
 
     # print(offers_dict)
 
