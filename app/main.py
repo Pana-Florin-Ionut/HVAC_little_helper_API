@@ -1,83 +1,58 @@
-import random
 from fastapi import FastAPI, status, HTTPException, Depends
-from fastapi.params import Body
-from pydantic import BaseModel
-import psycopg2
-from psycopg2.extras import RealDictCursor
 from sqlalchemy.orm import Session
-from . import table_models_required, table_models_optional
+from . import table_models_optional
 from .database import engine, get_db
 from . import tables
 from .database_model import Database as db
-from . import db_test
+from . import schemas
 from .database_connection import conn
-from pydantic import parse_obj_as
 from typing import List
+from .routers import companies, projects, users
+from . import table_models_required
+
+
+# class Offer(BaseModel):
 
 db = db(conn)
 
-# table_models_required.Base.metadata.create_all(bind=engine)
+table_models_required.Base.metadata.create_all(bind=engine)
+
 
 offers_table = "offers"
 
-# try:
-#     conn = psycopg2.connect(
-#         host="localhost",
-#         database="HLH_first",
-#         user="postgres",
-#         password="123456tyTY",
-#         cursor_factory=RealDictCursor,
-#     )
-#     cursor = conn.cursor()
-#     print("Database connection was successful")
-# except Exception as error:
-#     print("Database connection was failed")
-#     print("Error: ", error)
-db.create_table(tables.create_clients_table())
-db.create_table(tables.create_projects_table())
-db.create_table(tables.create_offers_table())
+
+# db.create_table(tables.create_clients_table())
+# db.create_table(tables.create_projects_table())
+# db.create_table(tables.create_offers_table())
 # db.create_table(tables.create_products_table())
-
-
-def find_offer(id):
-    return {"message": "offers"}
 
 
 app = FastAPI()
 
+app.include_router(projects.router)
+app.include_router(companies.router)
+app.include_router(users.router)
 
-@app.get("/", response_model=List[db_test.OffersRetrieve])
-async def root(get_db: Session = Depends(get_db), response = db_test.OffersRetrieve):
+
+@app.get("/")
+async def root():
+    return {"message": "Hello World"}
+
+
+@app.get("/offers", response_model=List[schemas.OffersRetrieve])
+async def offers(get_db: Session = Depends(get_db), response=schemas.OffersRetrieve):
     # print(list(get_db.execute(tables.get_offers())))
     response = get_db.execute(tables.get_offers())
-    response_dict = response.mappings().all() #get response as a list of dictionaries
-    # print(response_dict)
-    # for r in response_dict:
-    #     print(db_test.OffersRetrieve(**r))
-    # offers = []
-    # for r in response:
-    #     id = r[0]
-    #     client_id = r[1]
-    #     project_id = r[2]
-    #     offer_name = r[3]
-    #     new = db_test.OffersRetrieve(id=id, client_id=client_id, project_id=project_id, offer_name=offer_name)
-    #     offers.append(new)
-    #     # print(new)
-    # return offers
+    response_dict = response.mappings().all()  # get response as a list of dictionaries
     return response_dict
-
-
-@app.get("/offers")
-async def offers():
-    return {"message": "Offers"}
 
 
 @app.post(
     "/offers/",
     status_code=status.HTTP_201_CREATED,
-    # response_model=db_test.OffersRetrieve,
+    # response_model=models.OffersRetrieve,
 )
-async def create_offer(offer: db_test.OffersCreate):
+async def create_offer(offer: schemas.OffersCreate):
     print(offer.offer_name)
     print(offer)
     print(offer.dict())
@@ -106,14 +81,17 @@ async def create_offer(offer: db_test.OffersCreate):
             # return {"message": "Offer already exists"}
 
         conn.rollback()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Bad request")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Bad request"
+        )
 
     # print(offers_dict)
 
 
 @app.get("/offers/{id}")
 async def get_offer(id: int):
-    offer = find_offer(id)
+    print(offer)
+    offer = "offer"
     if not offer:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -123,8 +101,8 @@ async def get_offer(id: int):
 
 
 @app.put("/offers/{id}")
-async def update_offer(id: int, offer: db_test.Offer):
-    index = find_offer(id)
+async def update_offer(id: int, offer: schemas.Offer):
+    index = "offer"
     print("Index" + str(index))
     if not index:
         raise HTTPException(
@@ -137,7 +115,7 @@ async def update_offer(id: int, offer: db_test.Offer):
 
 @app.delete("/delete/{id}")
 async def delete_offer(id: int, db: Session = Depends(get_db)):
-    offer = find_offer(id)
+    offer = "offer"
     if not offer:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -155,7 +133,7 @@ def create_new_offer_table(title):
 
 @app.post("/offer/{offer_name}")
 def create_offer(
-    offer: db_test.Offers,
+    offer: schemas.Offers,
 ):
     # database_connection.execute_query2(query)
     try:

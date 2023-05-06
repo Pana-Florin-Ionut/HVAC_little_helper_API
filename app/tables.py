@@ -2,31 +2,31 @@ from psycopg2 import sql
 from sqlalchemy import literal_column, text
 
 
-def create_clients_table():
-    return """CREATE TABLE IF NOT EXISTS clients (
-        id SERIAL PRIMARY KEY,
-        client_name VARCHAR(255)
-        )"""
+# def create_clients_table():
+#     return """CREATE TABLE IF NOT EXISTS clients (
+#         id SERIAL PRIMARY KEY,
+#         client_name VARCHAR(255)
+#         )"""
 
 
-def create_projects_table():
-    return """CREATE TABLE IF NOT EXISTS projects (
-        id SERIAL PRIMARY KEY,
-        client_id INT,
-        project_name VARCHAR(255),
-        FOREIGN KEY (client_id) REFERENCES clients(id)
-        )"""
+# def create_projects_table():
+#     return """CREATE TABLE IF NOT EXISTS projects (
+#         id SERIAL PRIMARY KEY,
+#         client_id INT,
+#         project_name VARCHAR(255),
+#         FOREIGN KEY (client_id) REFERENCES clients(id)
+#         )"""
 
 
-def create_offers_table():
-    return """CREATE TABLE IF NOT EXISTS offers (
-        id SERIAL PRIMARY KEY,
-        client_id INT,
-        project_id INT,
-        offer_name VARCHAR(255) UNIQUE, 
-        FOREIGN KEY (project_id) REFERENCES projects(id),
-        FOREIGN KEY (client_id) REFERENCES clients(id)
-        )"""
+# def create_offers_table():
+#     return """CREATE TABLE IF NOT EXISTS offers (
+#         id SERIAL PRIMARY KEY,
+#         client_id INT,
+#         project_id INT,
+#         offer_name VARCHAR(255) UNIQUE,
+#         FOREIGN KEY (project_id) REFERENCES projects(id),
+#         FOREIGN KEY (client_id) REFERENCES clients(id)
+#         )"""
 
 
 def create_offer_table(table_name):
@@ -49,6 +49,7 @@ def create_offer_table(table_name):
 
 
 def insert_offer_row(table_name, columns, values):
+    print(columns)
     """Insert a row in offer table.
     Required table name, columns, values
     It does not need id

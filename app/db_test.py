@@ -1,7 +1,6 @@
 import psycopg2
 from dotenv import load_dotenv
 import os
-from pydantic import BaseModel
 
 load_dotenv()
 
@@ -37,38 +36,3 @@ def make_table(table_name):
 
 # new_db = Database(conn)
 # new_db.create_table(make_table("test_table"))
-
-
-class Offer(BaseModel):    
-    id: int | float
-    product_name: str
-    ch1: str
-    ch2: str
-    ch3: str
-    ch4: str
-    ch5: str
-    ch6: str
-    ch7: str
-    ch8: str
-    UM: str
-    quantity: float
-
-
-
-class Offers(BaseModel):
-    id: int | None =  None
-    client_id: int
-    project_id: int
-    offer_name: str
-    offer_body: Offer | None = None
-
-class OffersRetrieve(BaseModel):
-    id: int | None =  None
-    client_id: int
-    project_id: int
-    offer_name: str
-
-class OffersCreate(BaseModel):
-    client_id: int
-    project_id: int
-    offer_name: str

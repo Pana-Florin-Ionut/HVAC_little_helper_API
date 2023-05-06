@@ -25,15 +25,3 @@ def create_offer_table(engine, title):
 
     Base.metadata.create_all(bind=engine)
 
-def get_table(title):
-    return Base.metadata.tables[title]
-
-
-# def get_offer_table(offer_name, engine):
-    # metadata = MetaData().reflect(bind = engine)
-    # return metadata.tables[offer_name]
-    
-
-
-# def get_offer2(offer_name):
-#     return Base.metadata.tables[offer_name]
