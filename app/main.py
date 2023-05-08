@@ -7,7 +7,7 @@ from .database_model import Database as db
 from . import schemas
 from .database_connection import conn
 from typing import List
-from .routers import companies, projects, users
+from .routers import companies, projects, users, offers
 from . import table_models_required
 
 
@@ -21,17 +21,12 @@ table_models_required.Base.metadata.create_all(bind=engine)
 offers_table = "offers"
 
 
-# db.create_table(tables.create_clients_table())
-# db.create_table(tables.create_projects_table())
-# db.create_table(tables.create_offers_table())
-# db.create_table(tables.create_products_table())
-
-
 app = FastAPI()
 
 app.include_router(projects.router)
 app.include_router(companies.router)
 app.include_router(users.router)
+app.include_router(offers.router)
 
 
 @app.get("/")
@@ -39,51 +34,43 @@ async def root():
     return {"message": "Hello World"}
 
 
-@app.get("/offers", response_model=List[schemas.OffersRetrieve])
-async def offers(get_db: Session = Depends(get_db), response=schemas.OffersRetrieve):
-    # print(list(get_db.execute(tables.get_offers())))
-    response = get_db.execute(tables.get_offers())
-    response_dict = response.mappings().all()  # get response as a list of dictionaries
-    return response_dict
+@app.get(
+    "/offers",
+    status_code=status.HTTP_200_OK,
+    response_model=List[schemas.OffersRetrieve],
+)
+async def offers(db: Session = Depends(get_db)):
+    offers = db.query(table_models_required.Offers).all()
+    return offers
 
 
 @app.post(
     "/offers/",
     status_code=status.HTTP_201_CREATED,
-    # response_model=models.OffersRetrieve,
+    response_model=schemas.OffersRetrieve,
 )
-async def create_offer(offer: schemas.OffersCreate):
-    print(offer.offer_name)
-    print(offer)
-    print(offer.dict())
-    offer_name = offer.offer_name
-    offer_body = offer.dict()
-    try:
-        db.execute(
-            tables.insert_offer_row(
-                table_name=offers_table,
-                columns=list(offer_body.keys()),
-                values=offer_body.values(),
-            )
-        )
-        # db.create_table(tables.create_offer_table(offer_name))
-        return {"New offer entry": offer_name}
-    except Exception as e:
-        print(f"Error:  {e}")
-        if (
-            f'duplicate key value violates unique constraint "offers_offer_name_key"\nDETAIL:  Key (offer_name)=({offer_name}) already exists.\n'
-            in str(e)
-        ):
-            conn.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT, detail=f"Offer already exists"
-            )
-            # return {"message": "Offer already exists"}
+async def create_offer(offer: schemas.OffersCreate, db: Session = Depends(get_db)):
+    new_offer = table_models_required.Offers(**offer.dict())
+    db.add(new_offer)
+    db.commit()
+    db.refresh(new_offer)
+    return new_offer
+    # except Exception as e:
+    #     print(f"Error:  {e}")
+    #     if (
+    #         f'duplicate key value violates unique constraint "offers_offer_name_key"\nDETAIL:  Key (offer_name)=({offer_name}) already exists.\n'
+    #         in str(e)
+    #     ):
+    #         conn.rollback()
+    #         raise HTTPException(
+    #             status_code=status.HTTP_409_CONFLICT, detail=f"Offer already exists"
+    #         )
+    #         # return {"message": "Offer already exists"}
 
-        conn.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Bad request"
-        )
+    #     conn.rollback()
+    #     raise HTTPException(
+    #         status_code=status.HTTP_400_BAD_REQUEST, detail=f"Bad request"
+    #     )
 
     # print(offers_dict)
 

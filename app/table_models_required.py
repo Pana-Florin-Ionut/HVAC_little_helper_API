@@ -5,17 +5,17 @@ from sqlalchemy.sql.sqltypes import TIMESTAMP
 from sqlalchemy.sql.expression import text
 from sqlalchemy import MetaData
 
-
-users_id_seq = Sequence("users_id_seq", metadata=MetaData(), start=1)
-companies_id_seq = Sequence("companies_id_seq", metadata=MetaData(), start=1)
-projects_id_seq = Sequence("projects_id_seq", metadata=MetaData(), start=1)
-offers_id_seq = Sequence("offers_id_seq", metadata=MetaData(), start=1)
+# same function as index=True
+# users_id_seq = Sequence("users_id_seq", metadata=MetaData(), start=1)
+# companies_id_seq = Sequence("companies_id_seq", metadata=MetaData(), start=1)
+# projects_id_seq = Sequence("projects_id_seq", metadata=MetaData(), start=1)
+# offers_id_seq = Sequence("offers_id_seq", metadata=MetaData(), start=1)
 
 
 class Users(Base):
     __tablename__ = "users"
-
-    id = Column(Integer, server_default=users_id_seq.next_value(), primary_key=True)
+    #  server_default=users_id_seq.next_value(),
+    id = Column(Integer, primary_key=True, index=True)
     email = Column(String, nullable=False, unique=True)
     password = Column(String, nullable=False)
     created = Column(
@@ -25,10 +25,9 @@ class Users(Base):
 
 class Companies(Base):
     __tablename__ = "companies"
-
+    # server_default=companies_id_seq.next_value(),
     id = Column(
         Integer,
-        server_default=companies_id_seq.next_value(),
         primary_key=True,
         index=True,
     )
@@ -41,10 +40,9 @@ class Companies(Base):
 
 class Projects(Base):
     __tablename__ = "projects"
-
+    # server_default=projects_id_seq.next_value(),
     id = Column(
         Integer,
-        server_default=projects_id_seq.next_value(),
         primary_key=True,
         index=True,
     )
@@ -61,10 +59,8 @@ class Projects(Base):
 
 class Offers(Base):
     __tablename__ = "offers"
-
-    id = Column(
-        Integer, server_default=offers_id_seq.next_value(), primary_key=True, index=True
-    )
+    # server_default=offers_id_seq.next_value(),
+    id = Column(Integer, primary_key=True, index=True)
     company_id = Column(
         Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
     )
@@ -78,3 +74,12 @@ class Offers(Base):
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
     # created_by = Column(String, ForeignKey("users.id"), nullable=False)
+
+
+class Someclass(Base):
+    __tablename__ = "someclass"
+
+    id = Column(Integer, primary_key=True, index=True)
+    created = Column(
+        TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
+    )
