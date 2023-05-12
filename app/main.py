@@ -4,10 +4,10 @@ from . import table_models_optional
 from .database import engine, get_db
 from . import tables
 from .database_model import Database as db
-from . import schemas
+from . import schemas, oauth2
 from .database_connection import conn
 from typing import List
-from .routers import companies, projects, users, offers
+from .routers import companies, projects, users, offers, auth
 from . import table_models_required
 
 
@@ -27,6 +27,7 @@ app.include_router(projects.router)
 app.include_router(companies.router)
 app.include_router(users.router)
 app.include_router(offers.router)
+app.include_router(auth.router)
 
 
 @app.get("/")
@@ -39,8 +40,22 @@ async def root():
     status_code=status.HTTP_200_OK,
     response_model=List[schemas.OffersRetrieve],
 )
-async def offers(db: Session = Depends(get_db)):
-    offers = db.query(table_models_required.Offers).all()
+async def offers(
+    db: Session = Depends(get_db), user: int = Depends(oauth2.get_current_user)
+):
+    print(f"User: {user}")
+    if user.company_id is None and user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authorized to perform this action",
+        )
+    if user.role == "admin":
+        offers = db.query(table_models_required.Offers).all()
+        return offers
+
+    offers = db.query(table_models_required.Offers).where(
+        table_models_required.Offers.company_id == user.company_id
+    ).all()
     return offers
 
 
@@ -49,7 +64,11 @@ async def offers(db: Session = Depends(get_db)):
     status_code=status.HTTP_201_CREATED,
     response_model=schemas.OffersRetrieve,
 )
-async def create_offer(offer: schemas.OffersCreate, db: Session = Depends(get_db)):
+async def create_offer(
+    offer: schemas.OffersCreate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(oauth2.get_current_user),
+):
     new_offer = table_models_required.Offers(**offer.dict())
     db.add(new_offer)
     db.commit()
@@ -77,7 +96,7 @@ async def create_offer(offer: schemas.OffersCreate, db: Session = Depends(get_db
 
 @app.get("/offers/{id}")
 async def get_offer(id: int):
-    print(offer)
+    # print(offer)
     offer = "offer"
     if not offer:
         raise HTTPException(

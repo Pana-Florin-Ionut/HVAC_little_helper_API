@@ -1,9 +1,10 @@
 from typing import List
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
+from typing import Optional
 
 
-class Offer(BaseModel):    
+class Offer(BaseModel):
     id: int | float
     product_name: str
     ch1: str
@@ -18,9 +19,8 @@ class Offer(BaseModel):
     quantity: float
 
 
-
 class Offers(BaseModel):
-    id: int | None =  None
+    id: int | None = None
     company_id: int
     project_id: int
     offer_name: str
@@ -31,6 +31,7 @@ class Offers(BaseModel):
 
     class Config:
         orm_mode = True
+
 
 class OffersRetrieve(BaseModel):
     id: int
@@ -44,6 +45,7 @@ class OffersRetrieve(BaseModel):
     class Config:
         orm_mode = True
 
+
 class OffersCreate(BaseModel):
     company_id: int
     project_id: int
@@ -54,6 +56,7 @@ class OffersCreate(BaseModel):
 
     class Config:
         orm_mode = True
+
 
 class User(BaseModel):
     id: int
@@ -67,14 +70,36 @@ class User(BaseModel):
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
+    company_id: int
 
     class Config:
         orm_mode = True
+
 
 class UserOut(BaseModel):
     id: int
     email: EmailStr
+    company_id: int
     created: datetime
 
     class Config:
         orm_mode = True
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+    class Config:
+        orm_mode = True
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class TokenData(BaseModel):
+    id: Optional[int] = None
+    company_id: Optional[int] = None
+    role: Optional[str] = None

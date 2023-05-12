@@ -18,6 +18,8 @@ class Users(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, nullable=False, unique=True)
     password = Column(String, nullable=False)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"))
+    role = Column(String)
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )

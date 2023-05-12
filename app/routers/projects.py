@@ -10,9 +10,10 @@ router = APIRouter(
 
 @router.get("/{co_key}", status_code=status.HTTP_200_OK)
 def get_projects(co_key: str | None = None):
-    if co_key is None:
+    if co_key == "all":
+        # should return projects for the users company
         return {"message": "get all projects"}
-
+    # should return a project if user  has access to it
     return {"message": f"get projects - project key = {co_key}"}
 
 
