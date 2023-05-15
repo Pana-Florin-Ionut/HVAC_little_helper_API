@@ -1,10 +1,14 @@
 from jose import JWTError, jwt
 from dotenv import load_dotenv
 import os
-from . import schemas
+from . import schemas,  table_models_required
 from datetime import datetime, timedelta
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.orm import Session
+from .database import get_db
+
+
 
 
 load_dotenv()
@@ -28,25 +32,29 @@ def create_access_token(data: dict):
 def verify_access_token(token: str, credentials_exception):
     try:
         payload = jwt.decode(token, secret_key, algorithms=[algorithm])
-        print(payload)
+        # print(payload)
         id: str = payload.get("user_id")
-        company_id: str = payload.get("company_id")
-        role: str = payload.get("role")
+        # company_id: str = payload.get("company_id")
+        # role: str = payload.get("role")
         if id is None:
             raise credentials_exception
-        # token_data = schemas.TokenData(id=id)  # can add other data to the token
-        token_data = schemas.TokenData(id=id, company_id=company_id, role=role)
+        token_data = schemas.TokenData(id=id)  # can add other data to the token
+        # token_data = schemas.TokenData(id=id, company_id=company_id, role=role)
+
 
         return token_data
     except JWTError:
         raise credentials_exception
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail=f"Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    token = verify_access_token(token, credentials_exception)
 
-    return verify_access_token(token, credentials_exception)
+    user = db.query(table_models_required.Users).filter(table_models_required.Users.id == token.id).first()
+
+    return user

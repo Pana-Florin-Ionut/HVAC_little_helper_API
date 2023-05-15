@@ -6,7 +6,7 @@ from . import tables
 from .database_model import Database as db
 from . import schemas, oauth2
 from .database_connection import conn
-from typing import List
+
 from .routers import companies, projects, users, offers, auth
 from . import table_models_required
 
@@ -35,63 +35,6 @@ async def root():
     return {"message": "Hello World"}
 
 
-@app.get(
-    "/offers",
-    status_code=status.HTTP_200_OK,
-    response_model=List[schemas.OffersRetrieve],
-)
-async def offers(
-    db: Session = Depends(get_db), user: int = Depends(oauth2.get_current_user)
-):
-    print(f"User: {user}")
-    if user.company_id is None and user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authorized to perform this action",
-        )
-    if user.role == "admin":
-        offers = db.query(table_models_required.Offers).all()
-        return offers
-
-    offers = db.query(table_models_required.Offers).where(
-        table_models_required.Offers.company_id == user.company_id
-    ).all()
-    return offers
-
-
-@app.post(
-    "/offers/",
-    status_code=status.HTTP_201_CREATED,
-    response_model=schemas.OffersRetrieve,
-)
-async def create_offer(
-    offer: schemas.OffersCreate,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(oauth2.get_current_user),
-):
-    new_offer = table_models_required.Offers(**offer.dict())
-    db.add(new_offer)
-    db.commit()
-    db.refresh(new_offer)
-    return new_offer
-    # except Exception as e:
-    #     print(f"Error:  {e}")
-    #     if (
-    #         f'duplicate key value violates unique constraint "offers_offer_name_key"\nDETAIL:  Key (offer_name)=({offer_name}) already exists.\n'
-    #         in str(e)
-    #     ):
-    #         conn.rollback()
-    #         raise HTTPException(
-    #             status_code=status.HTTP_409_CONFLICT, detail=f"Offer already exists"
-    #         )
-    #         # return {"message": "Offer already exists"}
-
-    #     conn.rollback()
-    #     raise HTTPException(
-    #         status_code=status.HTTP_400_BAD_REQUEST, detail=f"Bad request"
-    #     )
-
-    # print(offers_dict)
 
 
 @app.get("/offers/{id}")

@@ -21,6 +21,7 @@ class Offer(BaseModel):
 
 class Offers(BaseModel):
     id: int | None = None
+    client_id: int | None = None
     company_id: int
     project_id: int
     offer_name: str
@@ -35,24 +36,27 @@ class Offers(BaseModel):
 
 class OffersRetrieve(BaseModel):
     id: int
+    client_id: int | None = None
     company_id: int
     project_id: int
     offer_name: str
     offer_key: str
     is_finalized: bool
     timestamp: datetime
+    created_by: int | str
 
     class Config:
         orm_mode = True
 
 
 class OffersCreate(BaseModel):
+    client_id: int | None = None
     company_id: int
     project_id: int
     offer_name: str
     offer_key: str
     is_finalized: bool = False
-    # created_by: str = "admin"
+    # created_by: int | str
 
     class Config:
         orm_mode = True

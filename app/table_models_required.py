@@ -5,7 +5,7 @@ from sqlalchemy.sql.sqltypes import TIMESTAMP
 from sqlalchemy.sql.expression import text
 from sqlalchemy import MetaData
 
-# same function as index=True
+# same function as index=True?
 # users_id_seq = Sequence("users_id_seq", metadata=MetaData(), start=1)
 # companies_id_seq = Sequence("companies_id_seq", metadata=MetaData(), start=1)
 # projects_id_seq = Sequence("projects_id_seq", metadata=MetaData(), start=1)
@@ -63,6 +63,7 @@ class Offers(Base):
     __tablename__ = "offers"
     # server_default=offers_id_seq.next_value(),
     id = Column(Integer, primary_key=True, index=True)
+    client_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
     company_id = Column(
         Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
     )
@@ -75,13 +76,4 @@ class Offers(Base):
     timestamp = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
-    # created_by = Column(String, ForeignKey("users.id"), nullable=False)
-
-
-class Someclass(Base):
-    __tablename__ = "someclass"
-
-    id = Column(Integer, primary_key=True, index=True)
-    created = Column(
-        TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
-    )
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
