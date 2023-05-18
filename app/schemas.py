@@ -4,19 +4,24 @@ from datetime import datetime
 from typing import Optional
 
 
-class Offer(BaseModel):
+class Product(BaseModel):
     id: int | float
     product_name: str
-    ch1: str
-    ch2: str
-    ch3: str
-    ch4: str
-    ch5: str
-    ch6: str
-    ch7: str
-    ch8: str
+    ch1: str | None = None
+    ch2: str | None = None
+    ch3: str | None = None
+    ch4: str | None = None
+    ch5: str | None = None
+    ch6: str | None = None
+    ch7: str | None = None
+    ch8: str | None = None
     UM: str
     quantity: float
+    
+
+
+class Offer(BaseModel):
+    products: list[Product] | None = None
 
 
 class Offers(BaseModel):

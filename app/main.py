@@ -7,7 +7,7 @@ from .database_model import Database as db
 from . import schemas, oauth2
 from .database_connection import conn
 
-from .routers import companies, projects, users, offers, auth
+from .routers import companies, projects, users, offers, auth, offer_body
 from . import table_models_required
 
 
@@ -26,6 +26,7 @@ app = FastAPI()
 app.include_router(projects.router)
 app.include_router(companies.router)
 app.include_router(users.router)
+app.include_router(offer_body.router)
 app.include_router(offers.router)
 app.include_router(auth.router)
 
@@ -76,27 +77,3 @@ async def delete_offer(id: int, db: Session = Depends(get_db)):
     return {"Offer deleted": id}
 
 
-def create_new_offer_table(title):
-    table_models_optional.create_offer_table(engine, title)
-
-
-@app.post("/offer/{offer_name}")
-def create_offer(
-    offer: schemas.Offers,
-):
-    # database_connection.execute_query2(query)
-    try:
-        query = tables.make_table(offer.offer_name)
-        db.create_table(query)
-        # return {f"{offer}": f"{offer_name}"}
-        return {"message": f"{offer.offer_name} created"}
-    except Exception as e:
-        print(e)
-        return {"message": e}
-
-
-@app.get("/offer/{offer_name}")
-def get_offer(
-    offer_name,
-):
-    offer = db.get_table(f"SELECT * FROM {offer_name}")

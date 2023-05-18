@@ -1,5 +1,6 @@
 from psycopg2 import sql
 from sqlalchemy import literal_column, text
+from .database import get_db as conn
 
 
 # def create_clients_table():
@@ -62,10 +63,9 @@ def insert_offer_row(table_name, columns, values):
 
 
 def get_offer(offer_name):
-    return sql.SQL("""SELECT * FROM offers WHERE offer_name = {offer_name}""").format(
-        offer_name=sql.Literal(offer_name)
-    )
-
-
-def get_offers():
-    return text("""SELECT * FROM offers""")
+    # query = sql.SQL("""SELECT * FROM offers WHERE offer_name = {offer_name}""")
+    # query = query.format(offer_name=sql.Literal(offer_name))
+    # print(f"query: {query.as_string(conn)}")
+    # query = f"""SELECT * FROM offers WHERE offer_name = '{offer_name}' """
+    query = f"""SELECT * FROM {offer_name} """
+    return query
