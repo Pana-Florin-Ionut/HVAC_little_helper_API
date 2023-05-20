@@ -7,7 +7,7 @@ from .database_model import Database as db
 from . import schemas, oauth2
 from .database_connection import conn
 
-from .routers import companies, projects, users, offers, auth, offer_body
+from .routers import companies, offer, projects, users, offers, auth
 from . import table_models_required
 
 
@@ -26,7 +26,7 @@ app = FastAPI()
 app.include_router(projects.router)
 app.include_router(companies.router)
 app.include_router(users.router)
-app.include_router(offer_body.router)
+app.include_router(offer.router)
 app.include_router(offers.router)
 app.include_router(auth.router)
 

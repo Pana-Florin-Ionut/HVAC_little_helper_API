@@ -67,5 +67,5 @@ def get_offer(offer_name):
     # query = query.format(offer_name=sql.Literal(offer_name))
     # print(f"query: {query.as_string(conn)}")
     # query = f"""SELECT * FROM offers WHERE offer_name = '{offer_name}' """
-    query = f"""SELECT * FROM {offer_name} """
+    query = f"""SELECT * FROM "{offer_name}" """
     return query

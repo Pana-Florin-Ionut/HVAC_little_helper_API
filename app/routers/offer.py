@@ -1,45 +1,52 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
+
+import psycopg2
+import sqlalchemy
 from .. import schemas, oauth2, table_models_required, table_models_optional, tables
 from ..database import engine
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import text
 from ..database import get_db
 
-router = APIRouter(prefix="/offers/{id}/body", tags=["Offer Body"])
+router = APIRouter(prefix="/offer/{offer_name}", tags=["Offer Body"])
 
 
-def create_new_offer_table(title):
-    table_models_optional.create_offer_table(engine, title)
+def create_new_offer_table(offer_name):
+    table_models_optional.create_offer_table(engine, offer_name)
 
 
-def get_offer_name(id, db):
+def get_offer_details(offer_name, db):
     offer = (
         db.query(table_models_required.Offers)
-        .filter(table_models_required.Offers.id == id)
+        .filter(table_models_required.Offers.offer_name == offer_name)
         .first()
     )
-    offer_name = offer.offer_name
-    return offer_name
+    return offer
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_offer_body(id: int, db: Session = Depends(get_db)):
-    offer_name = get_offer_name(id, db)
+def create_offer_body(offer_name: str, db: Session = Depends(get_db)):
+    
     try:
-        table_models_optional.create_offer_table(engine, offer_name)
-    except Exception as e:
+        #check if the offer table exists
+        db.execute(text(tables.get_offer(offer_name))).first() 
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                                detail=f"offer {offer_name} already exists") 
+    except sqlalchemy.exc.ProgrammingError as e:
+        #if the table is not found
         print(e)
-        return {"message": e}
+        pass
+    
+    table_models_optional.create_offer_table(engine, offer_name)
+    return {"message": f"{offer_name} created"}       
+
 
 
 @router.get("/", response_model=List[schemas.Product])
-def get_offer_body(id: int, db: Session = Depends(get_db)):
-    offer_name = get_offer_name(id, db)
+def get_offer_body(offer_name: str,  db: Session = Depends(get_db)):
     response = db.execute(text(tables.get_offer(offer_name)))
-    # print(f"response: {response}")
     response_dict = response.mappings().all()
-    # print(f"response_dict: {response_dict}")
     return response_dict
 
 
