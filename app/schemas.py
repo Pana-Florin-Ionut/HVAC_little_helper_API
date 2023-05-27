@@ -7,14 +7,14 @@ from typing import Optional
 class Product(BaseModel):
     id: int | float
     product_name: str
-    ch1: str | int | float | None 
-    ch2: str | int | float | None 
-    ch3: str | int | float | None 
-    ch4: str | int | float | None 
-    ch5: str | int | float | None 
-    ch6: str | int | float | None 
-    ch7: str | int | float | None 
-    ch8: str | int | float | None 
+    ch1: str | int | float | None
+    ch2: str | int | float | None
+    ch3: str | int | float | None
+    ch4: str | int | float | None
+    ch5: str | int | float | None
+    ch6: str | int | float | None
+    ch7: str | int | float | None
+    ch8: str | int | float | None
     UM: str
     quantity: float
 
@@ -88,6 +88,7 @@ class UserOut(BaseModel):
     id: int
     email: EmailStr
     company_id: int
+    role: str
     created: datetime
 
     class Config:

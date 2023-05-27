@@ -2,7 +2,6 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 
-import psycopg2
 import sqlalchemy
 from .. import schemas, oauth2, table_models_required, table_models_optional, tables
 from ..database import engine
@@ -34,7 +33,7 @@ def create_offer_body(
     user: schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     # this function should be triggered by the POST offers endpoint
-    if user.company_id is None and user.role != "admin":
+    if user.company_id is None or user.role != "administrator":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
         )
@@ -70,7 +69,7 @@ def get_offer_body(
     db: Session = Depends(get_db),
     user: schemas.UserOut = Depends(oauth2.get_current_user),
 ):
-    if user.company_id is None and user.role != "admin":
+    if user.company_id is None and user.role != "administrator":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
         )
@@ -78,23 +77,7 @@ def get_offer_body(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
         )
-    # try:
-    #     # check if the offer table exists
-    #     db.execute(text(tables.get_offer(offer_name))).first()
-    #     # get the offer details
-    #     offer = get_offer_details(offer_name, db)
-    #     # get the products
-    #     products = db.query(table_models_required.Products).filter(
-    #         table_models_required.Products.offer_id == offer.offer_id
-    #     ).all()
-    #     return products
-    # except sqlalchemy.exc.ProgrammingError as e:
-    #     if e.orig.pgcode == "42P01":
-    #         # check if the offer table exists
-    #         logging.error(
-    #             f"{datetime.utcnow()} {offer_name}: Internal Server Error + {e}"
-    #         )
-    #         raise HTTPException(:
+
     try:
         response = db.execute(text(tables.get_offer(offer_name)))
         return response.mappings().all()
@@ -102,7 +85,7 @@ def get_offer_body(
     except sqlalchemy.exc.ProgrammingError as e:
         if e.orig.pgcode == "42P01":
             # check if the offer table exists
-            logging.error(f"{datetime.utcnow()} {offer_name}: Table not fount + {e}")
+            logging.error(f"{datetime.utcnow()} {offer_name}: Table not found + {e}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"offer {offer_name} does not exist",
@@ -116,32 +99,79 @@ def get_offer_body(
                 detail=f"Internal Server Error",
             )
 
-    #     logging.error(f"offer {offer_name} does not exist + {e}")
-    #     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-    #                             detail=f"offer {offer_name} does not exist")
-    # except psycopg2.errors.UndefinedTable as e:
-    #     logging.error(f"offer {offer_name} does not exist + {e}")
-    #     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-    #                             detail=f"offer {offer_name} does not exist B")
+
+@router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
+def delete_offer_body(
+    offer_name: str,
+    db: Session = Depends(get_db),
+    user: schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    if user.company_id is None or user.role != "administrator":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+        )
+    if user.company_id != get_offer_details(offer_name, db).company_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+        )
+    if user.role not in ["admin", "manager"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+        )
+    try:
+        db.execute(text(tables.delete_offer(offer_name)))
+        logging.info(f"{datetime.utcnow()} {offer_name}: Table Deleted")
+        return {"message": f"{offer_name} deleted"}
+    except sqlalchemy.exc.ProgrammingError as e:
+        if e.orig.pgcode == "42P01":
+            # check if the offer table exists
+            logging.error(f"{datetime.utcnow()} {offer_name}: Table not found + {e}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Offer {offer_name} does not exist",
+            )
+    except Exception as e:
+        logging.error(f"{datetime.utcnow()} {offer_name}: Internal Server Error + {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal Server Error",
+        )
 
 
-# @router.post("/")
-# def create_offer(
-#     offer: schemas.Offers,
-# ):
-#     # database_connection.execute_query2(query)
-#     try:
-#         query = db.make_table(offer.offer_name)
-#         db.create_table(query)
-#         # return {f"{offer}": f"{offer_name}"}
-#         return {"message": f"{offer.offer_name} created"}
-#     except Exception as e:
-#         print(e)
-#         return {"message": e}
+@router.put("/", status_code=status.HTTP_202_ACCEPTED)
+def update_offer_body(
+    offer_name: str,
+    new_offer_name: str,
+    db: Session = Depends(get_db),
+    user: schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    if user.company_id is None or user.role != "administrator":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+        )
+    if user.company_id != get_offer_details(offer_name, db).company_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+        )
+    if user.role not in ["admin", "manager"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+        )
+    try:
+        db.execute(text(tables.modify_offer(offer_name, new_offer_name)))
 
-
-# @router.get("/offer/{offer_name}")
-# def get_offer(
-#     offer_name,
-# ):
-#     offer = db.get_table(f"SELECT * FROM {offer_name}")
+        logging.info(
+            f"{datetime.utcnow()} {offer_name} -> {new_offer_name}: Table Updated"
+        )
+        return {"message": f"{offer_name} updated"}
+    except sqlalchemy.exc.ProgrammingError as e:
+        if e.orig.pgcode == "42P01":
+            # check if the offer table exists
+            logging.error(f"{datetime.utcnow()} {offer_name}: Table not found + {e}")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        logging.error(f"{datetime.utcnow()} {offer_name}: Internal Server Error + {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal Server Error",
+        )

@@ -69,3 +69,12 @@ def get_offer(offer_name):
     # query = f"""SELECT * FROM offers WHERE offer_name = '{offer_name}' """
     query = f"""SELECT * FROM "{offer_name}" """
     return query
+
+
+def delete_offer(offer_name):
+    query = f"""DELETE * FROM "{offer_name}" """
+    return query
+
+def modify_offer(old_offer_name, new_offer_name):
+    query = f"""ALTER TABLE "{old_offer_name}" RENAME TO "{new_offer_name}" """
+    return query
