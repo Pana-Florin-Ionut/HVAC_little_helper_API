@@ -75,6 +75,12 @@ def delete_offer(offer_name):
     query = f"""DELETE * FROM "{offer_name}" """
     return query
 
+
 def modify_offer(old_offer_name, new_offer_name):
     query = f"""ALTER TABLE "{old_offer_name}" RENAME TO "{new_offer_name}" """
+    return query
+
+
+def add_product_to_offer(offer_name, product):
+    query = f"""INSERT INTO "{offer_name}" VALUES ('{product}') """
     return query
