@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import text
 from ..database import get_db
 import logging
-from ..user_permissions import check_user_permissions
+
 
 
 
@@ -27,7 +27,7 @@ def create_offer(
 ):
     # this function should be triggered by the POST offers endpoint
     print(user)
-    check_user_permissions(offer_name, user, db)
+    # check_user_permissions(offer_name, user, db)
     # if user.company_id is None or user.role != "administrator":
     #     raise HTTPException(
     #         status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"

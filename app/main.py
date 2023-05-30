@@ -6,6 +6,7 @@ from . import tables
 from .database_model import Database as db
 from . import schemas, oauth2
 from .database_connection import conn
+from . import user_permissions
 
 from .routers import companies, offer, projects, users, offers, auth
 from . import table_models_required
@@ -32,7 +33,8 @@ app.include_router(auth.router)
 
 
 @app.get("/")
-async def root():
+async def root(db: Session = Depends(get_db)):
+    user_permissions.can_create_project(1, db)
     return {"message": "Hello World"}
 
 

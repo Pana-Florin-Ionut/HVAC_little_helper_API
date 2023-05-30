@@ -53,3 +53,15 @@
     #             f"{datetime.utcnow()} {offer_name}: Internal Server Error + {e}"
     #         )
     #         raise HTTPException(:
+
+
+
+            # logging.warn(f"{datetime.utcnow()} - Error creating user: {e} ")
+            # logging.warn(f"{datetime.utcnow()} - Error creating user: {e.orig} ")
+            # logging.warn(f"{datetime.utcnow()} - Error creating user: {e.orig.pgcode} ")
+            # logging.warn(f"{datetime.utcnow()} - Error creating user: {e.orig.pgerror} ")
+            # logging.warn(f"{datetime.utcnow()} - Error creating user: {e.orig.diag.message_detail} ")
+            # logging.warn(f"{datetime.utcnow()} - Error creating user: {e.orig.diag.message_hint} ")
+            # logging.warn(f"{datetime.utcnow()} - Error creating user: {e.orig.diag.statement_position} ")
+            # logging.warn(f"{datetime.utcnow()} - Error creating user: {e.orig.diag.internal_position} ")
+            # logging.warn(f"{datetime.utcnow()} - Error creating user: {e.orig.diag.internal_query} ")

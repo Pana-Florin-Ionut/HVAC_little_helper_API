@@ -18,8 +18,9 @@ class Users(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, nullable=False, unique=True)
     password = Column(String, nullable=False)
-    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"))
-    role = Column(String)
+    company_id = Column(
+        Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=True
+    )
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
@@ -77,3 +78,18 @@ class Offers(Base):
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+
+class Roles(Base):
+    __tablename__ = "roles"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    can_create_project = Column(Boolean, server_default="FALSE")
+    can_create_offer = Column(Boolean, server_default="FALSE")
+    can_create_product = Column(Boolean, server_default="FALSE")
+    can_view_project = Column(Boolean, server_default="FALSE")
+    can_view_offer = Column(Boolean, server_default="FALSE")
+    can_view_product = Column(Boolean, server_default="FALSE")
+    created = Column(
+        TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
+    )

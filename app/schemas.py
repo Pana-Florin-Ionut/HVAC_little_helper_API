@@ -78,7 +78,7 @@ class User(BaseModel):
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
-    company_id: int
+    company_id: int | None = None
 
     class Config:
         orm_mode = True
@@ -87,8 +87,7 @@ class UserCreate(BaseModel):
 class UserOut(BaseModel):
     id: int
     email: EmailStr
-    company_id: int
-    role: str
+    company_id: int | None = None
     created: datetime
 
     class Config:
@@ -111,4 +110,3 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     id: Optional[int] = None
     company_id: Optional[int] = None
-    role: Optional[str] = None
