@@ -3,6 +3,8 @@ from typing import List
 from .. import schemas, oauth2, table_models_required
 from sqlalchemy.orm import Session
 from ..database import get_db
+from .. import user_permissions
+
 
 router = APIRouter(prefix="/offers", tags=["Offers"])
 
@@ -44,27 +46,35 @@ async def create_offer(
     db: Session = Depends(get_db),
     user: int = Depends(oauth2.get_current_user),
 ):
-    print(offer)
-    if user.company_id is None and user.role != "admin":
+    # print(offer)
+    if user_permissions.can_create_offer(user.id, db):
+        new_offer = table_models_required.Offers(created_by=user.id, **offer.dict())
+        db.add(new_offer)
+        db.commit()
+        db.refresh(new_offer)
+        return new_offer
+    else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authorized to perform this action",
         )
-    if (
-        db.query(table_models_required.Offers)
-        .filter(table_models_required.Offers.offer_name == offer.offer_name)
-        .first()
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="An offer with this name already exists",
-        )
+    # if user.company_id is None and user.role != "admin":
+    #     raise HTTPException(
+    #         status_code=status.HTTP_401_UNAUTHORIZED,
+    #         detail="Not authorized to perform this action",
+    #     )
+    # if (
+    #     db.query(table_models_required.Offers)
+    #     .filter(table_models_required.Offers.offer_name == offer.offer_name)
+    #     .first()
+    # ):
+    #     raise HTTPException(
+    #         status_code=status.HTTP_409_CONFLICT,
+    #         detail="An offer with this name already exists",
+    #     )
+    
 
-    new_offer = table_models_required.Offers(created_by=user.id, **offer.dict())
-    db.add(new_offer)
-    db.commit()
-    db.refresh(new_offer)
-    return new_offer
+    
     # except Exception as e:
     #     print(f"Error:  {e}")
     #     if (

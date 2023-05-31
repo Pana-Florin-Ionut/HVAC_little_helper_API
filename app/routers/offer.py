@@ -1,7 +1,7 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
-from ..utils  import get_offer_details
+from ..utils import get_offer_details
 import sqlalchemy
 from .. import schemas, oauth2, table_models_required, table_models_optional, tables
 from ..database import engine
@@ -9,15 +9,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import text
 from ..database import get_db
 import logging
-
-
-
+from .. import user_permissions
 
 router = APIRouter(prefix="/offer/{offer_name}", tags=["Offer Body"])
 
 
 def create_new_offer_table(offer_name):
     table_models_optional.create_offer_table(engine, offer_name)
+
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def create_offer(
@@ -27,6 +26,33 @@ def create_offer(
 ):
     # this function should be triggered by the POST offers endpoint
     print(user)
+    print(offer_name)
+    if user_permissions.can_create_offer(user.id, db):
+        try:
+            # check if the offer table exists
+            db.execute(text(tables.get_offer(offer_name))).first()
+            logging.info(f"{datetime.utcnow()} {offer_name}: Table already exists")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"offer {offer_name} already exists",
+            )
+        except sqlalchemy.exc.ProgrammingError as e:
+            # table not found, proceed to create the table
+            table_models_optional.create_offer_table(engine, offer_name)
+            logging.info(f"{datetime.utcnow()} {offer_name}: Table Created")
+            return {"message": f"{offer_name} created"}
+        except Exception as e:
+            logging.error(
+                f"{datetime.utcnow()} {offer_name}: Internal Server Error + {e}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Internal Server Error",
+            )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized else"
+        )
     # check_user_permissions(offer_name, user, db)
     # if user.company_id is None or user.role != "administrator":
     #     raise HTTPException(
@@ -40,26 +66,6 @@ def create_offer(
     #     raise HTTPException(
     #         status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
     #     )
-
-    try:
-        # check if the offer table exists
-        db.execute(text(tables.get_offer(offer_name))).first()
-        logging.info(f"{datetime.utcnow()} {offer_name}: Table already exists")
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"offer {offer_name} already exists",
-        )
-    except sqlalchemy.exc.ProgrammingError as e:
-        # table not found, proceed to create the table
-        table_models_optional.create_offer_table(engine, offer_name)
-        logging.info(f"{datetime.utcnow()} {offer_name}: Table Created")
-        return {"message": f"{offer_name} created"}
-    except Exception as e:
-        logging.error(f"{datetime.utcnow()} {offer_name}: Internal Server Error + {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal Server Error",
-        )
 
 
 @router.get("/", response_model=List[schemas.Product], status_code=status.HTTP_200_OK)

@@ -21,6 +21,7 @@ class Users(Base):
     company_id = Column(
         Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=True
     )
+    role = Column(String, nullable=True)
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
