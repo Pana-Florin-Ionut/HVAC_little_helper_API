@@ -1,5 +1,9 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
+from . import offer as create_offer_table
+
+import sqlalchemy
 from .. import schemas, oauth2, table_models_required
 from sqlalchemy.orm import Session
 from ..database import get_db
@@ -18,22 +22,45 @@ router = APIRouter(prefix="/offers", tags=["Offers"])
 async def offers(
     db: Session = Depends(get_db), user: int = Depends(oauth2.get_current_user)
 ):
-    print(f"User: {user}")
-    if user.company_id is None and user.role != "admin":
+    # print(f"User: {user}")
+    match user.role:
+        case "admin":
+            offers = db.query(table_models_required.Offers).all()
+            return offers
+        case "user":
+            offers = (
+                db.query(table_models_required.Offers)
+                .where(table_models_required.Offers.created_by == user.id)
+                .all()
+            )
+            return offers
+        case "company":
+            offers = (
+                db.query(table_models_required.Offers)
+                .where(table_models_required.Offers.company_id == user.company_id)
+                .all()
+            )
+            return offers
+
+    if user_permissions.can_view_offer(user.id, db):
+        try:
+            offers = (
+                db.query(table_models_required.Offers)
+                .where(table_models_required.Offers.company_id == user.company_id)
+                .all()
+            )
+            return offers
+        except Exception as e:
+            print(e)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Bad request",
+            )
+    else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authorized to perform this action",
         )
-    if user.role == "admin":
-        offers = db.query(table_models_required.Offers).all()
-        return offers
-
-    offers = (
-        db.query(table_models_required.Offers)
-        .where(table_models_required.Offers.company_id == user.company_id)
-        .all()
-    )
-    return offers
 
 
 @router.post(
@@ -41,55 +68,40 @@ async def offers(
     status_code=status.HTTP_201_CREATED,
     response_model=schemas.OffersRetrieve,
 )
-async def create_offer(
+def create_offer(
     offer: schemas.OffersCreate,
     db: Session = Depends(get_db),
     user: int = Depends(oauth2.get_current_user),
 ):
     # print(offer)
     if user_permissions.can_create_offer(user.id, db):
-        new_offer = table_models_required.Offers(created_by=user.id, **offer.dict())
-        db.add(new_offer)
-        db.commit()
-        db.refresh(new_offer)
+        try:
+            new_offer = table_models_required.Offers(created_by=user.id, **offer.dict())
+            db.add(new_offer)
+
+            db.commit()
+            db.refresh(new_offer)
+            # Create offer table after is ok
+            create_offer_table.create_offer_table(
+                offer_name=offer.offer_name, user=user, db=db
+            )
+
+        except sqlalchemy.exc.IntegrityError as e:
+            if e.orig.pgcode == "23505":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="An offer with this name already exists",
+                )
+        except Exception as e:
+            print(e)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Bad request",
+            )
+
         return new_offer
     else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authorized to perform this action",
         )
-    # if user.company_id is None and user.role != "admin":
-    #     raise HTTPException(
-    #         status_code=status.HTTP_401_UNAUTHORIZED,
-    #         detail="Not authorized to perform this action",
-    #     )
-    # if (
-    #     db.query(table_models_required.Offers)
-    #     .filter(table_models_required.Offers.offer_name == offer.offer_name)
-    #     .first()
-    # ):
-    #     raise HTTPException(
-    #         status_code=status.HTTP_409_CONFLICT,
-    #         detail="An offer with this name already exists",
-    #     )
-    
-
-    
-    # except Exception as e:
-    #     print(f"Error:  {e}")
-    #     if (
-    #         f'duplicate key value violates unique constraint "offers_offer_name_key"\nDETAIL:  Key (offer_name)=({offer_name}) already exists.\n'
-    #         in str(e)
-    #     ):
-    #         conn.rollback()
-    #         raise HTTPException(
-    #             status_code=status.HTTP_409_CONFLICT, detail=f"Offer already exists"
-    #         )
-    #         # return {"message": "Offer already exists"}
-
-    #     conn.rollback()
-    #     raise HTTPException(
-    #         status_code=status.HTTP_400_BAD_REQUEST, detail=f"Bad request"
-    #     )
-
-    # print(offers_dict)

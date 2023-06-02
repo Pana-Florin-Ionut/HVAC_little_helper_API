@@ -84,3 +84,7 @@ def modify_offer(old_offer_name, new_offer_name):
 def add_product_to_offer(offer_name, product):
     query = f"""INSERT INTO "{offer_name}" VALUES ('{product}') """
     return query
+
+def check_table_exists(table_name):
+    query = f"""SELECT EXISTS (SELECT '{table_name}')"""
+    return query

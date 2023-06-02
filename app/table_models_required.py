@@ -35,8 +35,8 @@ class Companies(Base):
         primary_key=True,
         index=True,
     )
-    company_name = Column(String, nullable=False)
-    company_key = Column(String, nullable=False)
+    company_name = Column(String, nullable=False, unique=True)
+    company_key = Column(String, nullable=False, unique=True)
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
@@ -53,8 +53,8 @@ class Projects(Base):
     company_id = Column(
         Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
     )
-    project_name = Column(String, nullable=False)
-    project_key = Column(String, nullable=False)
+    project_name = Column(String, nullable=False, unique=True)
+    project_key = Column(String, nullable=False, unique=True)
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
@@ -72,8 +72,8 @@ class Offers(Base):
     project_id = Column(
         Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
     )
-    offer_name = Column(String, nullable=False)
-    offer_key = Column(String, nullable=False)
+    offer_name = Column(String, nullable=False, unique=True)
+    offer_key = Column(String, nullable=False, unique=True)
     is_finalized = Column(Boolean, server_default="TRUE", nullable=True, default=False)
     timestamp = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
@@ -94,3 +94,21 @@ class Roles(Base):
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
+
+class Products(Base):
+    __tablename__ = "products"
+    id = Column(Integer, primary_key=True, index=True)
+    product_name = Column(String, nullable=False, unique=True)
+    product_key = Column(String, nullable=False, unique=True)
+    ch1 = Column(String, nullable=False)
+    ch2 = Column(String, nullable=False)
+    ch3 = Column(String, nullable=False)
+    ch4 = Column(String, nullable=False)
+    ch5 = Column(String, nullable=False)
+    ch6 = Column(String, nullable=False)
+    ch7 = Column(String, nullable=False)
+    ch8 = Column(String, nullable=False)
+    created = Column(
+        TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
+    )
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)

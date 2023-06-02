@@ -58,3 +58,15 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     user = db.query(table_models_required.Users).filter(table_models_required.Users.id == token.id).first()
 
     return user
+
+def logout(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=f"Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    token = verify_access_token(token, credentials_exception)
+
+    user = db.query(table_models_required.Users).filter(table_models_required.Users.id == token.id).first()
+
+    return user
