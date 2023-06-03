@@ -20,9 +20,9 @@ router = APIRouter(prefix="/offers", tags=["Offers"])
     response_model=List[schemas.OffersRetrieve],
 )
 async def offers(
-    db: Session = Depends(get_db), user: int = Depends(oauth2.get_current_user)
+    db: Session = Depends(get_db), user: int = Depends(oauth2.get_current_user), limit: int = 10, skip: int = 0,
 ):
-    # print(f"User: {user}")
+    print(f"User: {user.role}")
     match user.role:
         case "admin":
             offers = db.query(table_models_required.Offers).all()

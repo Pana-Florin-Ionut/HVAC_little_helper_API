@@ -34,7 +34,6 @@ app.include_router(auth.router)
 
 @app.get("/")
 async def root(db: Session = Depends(get_db)):
-    user_permissions.can_create_project(1, db)
     return {"message": "Hello World"}
 
 
