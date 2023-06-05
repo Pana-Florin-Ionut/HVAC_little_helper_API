@@ -40,7 +40,10 @@ class Companies(Base):
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    # broke the tests. circular importing error
+    # created_by = Column(
+    #     Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True
+    # )
 
 
 class Projects(Base):
@@ -59,14 +62,16 @@ class Projects(Base):
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
-    created_by = Column(Integer, ForeignKey("users.id"))
+    created_by = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
 
 
 class Offers(Base):
     __tablename__ = "offers"
     # server_default=offers_id_seq.next_value(),
     id = Column(Integer, primary_key=True, index=True)
-    client_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
+    client_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
     company_id = Column(
         Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
     )
@@ -79,13 +84,15 @@ class Offers(Base):
     timestamp = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_by = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
 
 
 class Permissions(Base):
     __tablename__ = "permissions"
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     can_create_project = Column(Boolean, server_default="FALSE")
     can_create_offer = Column(Boolean, server_default="FALSE")
     can_create_product = Column(Boolean, server_default="FALSE")
@@ -118,4 +125,6 @@ class Products(Base):
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_by = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )

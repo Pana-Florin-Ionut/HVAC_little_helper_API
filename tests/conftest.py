@@ -56,7 +56,11 @@ def client(session):
 
 @pytest.fixture()
 def test_user_1(client):
-    user_data = {"email": "ionut@test.com", "password": "123456"}
+    user_data = {
+        "email": "ionut@test.com",
+        "password": "123456",
+        "role": "application_administrator",
+    }
     res = client.post("/users/", json=user_data)
 
     assert res.status_code == 201
@@ -76,31 +80,29 @@ def authorized_client(client, token):
     return client
 
 
-# @pytest.fixture
-# def test_companies_1(test_user_1, session):
-#     company_data = [
-#         {
-#             "company_name": "test_company_1",
-#             "company_key": "TC1",
-#             "created_by": test_user_1["id"],
-#         },
-#         {
-#             "company_name": "test_company_2",
-#             "company_key": "TC2",
-#             "created_by": test_user_1["id"],
-#         },
-#         {
-#             "company_name": "test_company_3",
-#             "company_key": "TC3",
-#             "created_by": test_user_1["id"],
-#         },
-#               ]
-#     def create_companies(company):
-#         return schemas.Company(**company)
+@pytest.fixture
+def test_companies_1(test_user_1, session):
+    company_data = [
+        {
+            "company_name": "test_company_1",
+            "company_key": "TC1",
+        },
+        {
+            "company_name": "test_company_2",
+            "company_key": "TC2",
+        },
+        {
+            "company_name": "test_company_3",
+            "company_key": "TC3",
+        },
+    ]
 
-#     company_map = list(map(create_companies, company_data))
-#     session.add_all(company_map)
-#     session.commit()
+    def create_companies(company):
+        return table_models_required.Companies(**company)
+
+    company_map = list(map(create_companies, company_data))
+    session.add_all(company_map)
+    session.commit()
 
 
 # @pytest.fixture

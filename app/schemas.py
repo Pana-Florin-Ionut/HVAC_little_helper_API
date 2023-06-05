@@ -119,12 +119,14 @@ class Company(BaseModel):
     class Config:
         orm_mode = True
 
+
 class CompanyCreate(BaseModel):
     company_name: str
     company_key: str
 
     class Config:
         orm_mode = True
+
 
 class CompanyOut(BaseModel):
     id: int

@@ -108,7 +108,6 @@ def create_offer(
         try:
             new_offer = table_models_required.Offers(created_by=user.id, **offer.dict())
             db.add(new_offer)
-
             db.commit()
             db.refresh(new_offer)
             # Create offer table after is ok

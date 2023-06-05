@@ -1,5 +1,6 @@
 import pytest
 from app import schemas
+
 # from .database import client, session  # do not delete
 from dotenv import load_dotenv
 import os
@@ -29,21 +30,29 @@ def test_create_user(client):
 def test_login_user(client, test_user_1):
     res = client.post(
         "/login",
-        data={"username": test_user_1["email"], "password": test_user_1["password"]},
-    )
+        data={"username": test_user_1["email"], "password": test_user_1["password"]})
     login_res = schemas.Token(**res.json())
-    payload = jwt.decode(login_res.access_token, os.getenv("SECRET_KEY"), algorithms = os.getenv("ALGORITHM"))
+    payload = jwt.decode(
+        login_res.access_token,
+        os.getenv("SECRET_KEY"),
+        algorithms=os.getenv("ALGORITHM"),
+    )
     id = payload.get("user_id")
     assert id == test_user_1["id"]
     assert login_res.token_type == "bearer"
     assert res.status_code == 200
 
-@pytest.mark.parametrize("email, password, status_code", [
-    ("someemail@email.com", "123456", 403),
-    ("ionut@email.com", "wrongpassword", 403),
-    ("asd@email.com", "asdasd", 403),
-    (None, "123456", 422),
-    ("ionut@email.com", None, 422)])
+
+@pytest.mark.parametrize(
+    "email, password, status_code",
+    [
+        ("someemail@email.com", "123456", 403),
+        ("ionut@email.com", "wrongpassword", 403),
+        ("asd@email.com", "asdasd", 403),
+        (None, "123456", 422),
+        ("ionut@email.com", None, 422),
+    ],
+)
 def test_incorrect_login(client, email, password, status_code):
     res = client.post(
         "/login",

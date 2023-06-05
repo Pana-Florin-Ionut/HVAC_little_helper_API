@@ -6,6 +6,3 @@
 #         }
 #     )
 #     assert response.status_code == 201
-
-
-
