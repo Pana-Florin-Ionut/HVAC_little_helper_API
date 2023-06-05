@@ -40,6 +40,7 @@ class Companies(Base):
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
 
 
 class Projects(Base):
@@ -58,7 +59,7 @@ class Projects(Base):
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
-    # created_by = Column(Integer, ForeignKey("users.id"))
+    created_by = Column(Integer, ForeignKey("users.id"))
 
 
 class Offers(Base):
@@ -81,8 +82,8 @@ class Offers(Base):
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
 
 
-class Roles(Base):
-    __tablename__ = "roles"
+class Permissions(Base):
+    __tablename__ = "permissions"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     can_create_project = Column(Boolean, server_default="FALSE")
@@ -91,9 +92,15 @@ class Roles(Base):
     can_view_project = Column(Boolean, server_default="FALSE")
     can_view_offer = Column(Boolean, server_default="FALSE")
     can_view_product = Column(Boolean, server_default="FALSE")
+    can_delete_project = Column(Boolean, server_default="FALSE")
+    can_delete_offer = Column(Boolean, server_default="FALSE")
+    can_delete_product = Column(Boolean, server_default="FALSE")
+    can_add_user = Column(Boolean, server_default="FALSE")
+    can_edit_user = Column(Boolean, server_default="FALSE")
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
+
 
 class Products(Base):
     __tablename__ = "products"

@@ -20,47 +20,77 @@ router = APIRouter(prefix="/offers", tags=["Offers"])
     response_model=List[schemas.OffersRetrieve],
 )
 async def offers(
-    db: Session = Depends(get_db), user: int = Depends(oauth2.get_current_user), limit: int = 10, skip: int = 0,
+    db: Session = Depends(get_db),
+    user: schemas.UserOut = Depends(oauth2.get_current_user),
+    limit: int = 10,
+    skip: int = 0,
+    company_id=None,
+    search=None,
+    sort=None,
+    filter=None,
+    created_by=None,
 ):
     print(f"User: {user.role}")
     match user.role:
+        case "application_administrator":
+            try:
+                offers = (
+                    db.query(table_models_required.Offers)
+                    .limit(limit)
+                    .offset(skip)
+                    .where(table_models_required.Offers.company_id == company_id)
+                    .where(table_models_required.Offers.offer_name.contains(search))
+                    .where(table_models_required.Offers.created_by == created_by)
+                    .filter(filter)
+                    .sort(sort)
+                    .all()
+                )
+                return offers
+            except Exception as e:
+                print(e)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Bad request",
+                )
         case "admin":
-            offers = db.query(table_models_required.Offers).all()
-            return offers
-        case "user":
             offers = (
                 db.query(table_models_required.Offers)
-                .where(table_models_required.Offers.created_by == user.id)
-                .all()
-            )
-            return offers
-        case "company":
-            offers = (
-                db.query(table_models_required.Offers)
+                .limit(limit)
+                .offset(skip)
                 .where(table_models_required.Offers.company_id == user.company_id)
+                .where(table_models_required.Offers.offer_name.contains(search))
+                .where(table_models_required.Offers.created_by == created_by)
+                .filter(filter)
+                .sort(sort)
                 .all()
             )
             return offers
-
-    if user_permissions.can_view_offer(user.id, db):
-        try:
-            offers = (
+        case "custom":
+            if user_permissions.can_view_offer(user.id, db):
+                try:
+                    offers = (
                 db.query(table_models_required.Offers)
+                .limit(limit)
+                .offset(skip)
                 .where(table_models_required.Offers.company_id == user.company_id)
+                .where(table_models_required.Offers.offer_name.contains(search))
+                .where(table_models_required.Offers.created_by == created_by)
+                .filter(filter)
+                .sort(sort)
                 .all()
             )
-            return offers
-        except Exception as e:
-            print(e)
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Bad request",
-            )
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authorized to perform this action",
-        )
+                    return offers
+                except Exception as e:
+                    print(e)
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Bad request",
+                    )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Not authorized to perform this action",
+                )
 
 
 @router.post(

@@ -47,7 +47,7 @@ class OffersRetrieve(BaseModel):
     offer_key: str
     is_finalized: bool
     timestamp: datetime
-    created_by: int | str
+    created_by: int
 
     class Config:
         orm_mode = True
@@ -60,7 +60,6 @@ class OffersCreate(BaseModel):
     offer_name: str
     offer_key: str
     is_finalized: bool = False
-    # created_by: int | str
 
     class Config:
         orm_mode = True
@@ -110,3 +109,28 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     id: Optional[int] = None
     company_id: Optional[int] = None
+
+
+class Company(BaseModel):
+    id: int
+    company_name: str
+    company_key: str
+
+    class Config:
+        orm_mode = True
+
+class CompanyCreate(BaseModel):
+    company_name: str
+    company_key: str
+
+    class Config:
+        orm_mode = True
+
+class CompanyOut(BaseModel):
+    id: int
+    company_name: str
+    company_key: str
+    created: datetime
+
+    class Config:
+        orm_mode = True
