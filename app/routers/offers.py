@@ -2,8 +2,8 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from . import offer as create_offer_table
-
 import sqlalchemy
+from sqlalchemy import select, update, delete, insert
 from .. import schemas, oauth2, table_models_required
 from sqlalchemy.orm import Session
 from ..database import get_db
@@ -24,28 +24,23 @@ async def offers(
     user: schemas.UserOut = Depends(oauth2.get_current_user),
     limit: int = 10,
     skip: int = 0,
-    company_id=None,
-    search=None,
-    sort=None,
-    filter=None,
-    created_by=None,
+    company_id: int = 0,
+    offer_name="",
+    search="",
+    sort="",
+    filter="",
+    created_by: int = 0,
 ):
     print(f"User: {user.role}")
     match user.role:
         case "application_administrator":
             try:
-                offers = (
-                    db.query(table_models_required.Offers)
-                    .limit(limit)
-                    .offset(skip)
+                return db.scalars(select(table_models_required.Offers)
                     .where(table_models_required.Offers.company_id == company_id)
-                    .where(table_models_required.Offers.offer_name.contains(search))
+                    .where(table_models_required.Offers.offer_name.icontains(search))
                     .where(table_models_required.Offers.created_by == created_by)
-                    .filter(filter)
-                    .sort(sort)
-                    .all()
-                )
-                return offers
+                    ).all()
+        
             except Exception as e:
                 print(e)
                 raise HTTPException(
@@ -69,16 +64,18 @@ async def offers(
             if user_permissions.can_view_offer(user.id, db):
                 try:
                     offers = (
-                db.query(table_models_required.Offers)
-                .limit(limit)
-                .offset(skip)
-                .where(table_models_required.Offers.company_id == user.company_id)
-                .where(table_models_required.Offers.offer_name.contains(search))
-                .where(table_models_required.Offers.created_by == created_by)
-                .filter(filter)
-                .sort(sort)
-                .all()
-            )
+                        db.query(table_models_required.Offers)
+                        .where(
+                            table_models_required.Offers.company_id == user.company_id
+                        )
+                        .where(table_models_required.Offers.offer_name.contains(search))
+                        .where(table_models_required.Offers.created_by == created_by)
+                        .filter(filter)
+                        .limit(limit)
+                        .offset(skip)
+                        .sort(sort)
+                        .all()
+                    )
                     return offers
                 except Exception as e:
                     print(e)

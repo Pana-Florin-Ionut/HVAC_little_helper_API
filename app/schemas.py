@@ -88,6 +88,7 @@ class UserOut(BaseModel):
     email: EmailStr
     company_id: int | None = None
     created: datetime
+    
 
     class Config:
         orm_mode = True
@@ -133,6 +134,7 @@ class CompanyOut(BaseModel):
     company_name: str
     company_key: str
     created: datetime
+
 
     class Config:
         orm_mode = True

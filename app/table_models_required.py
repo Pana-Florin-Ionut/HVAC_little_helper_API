@@ -4,6 +4,7 @@ from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Table, Sequ
 from sqlalchemy.sql.sqltypes import TIMESTAMP
 from sqlalchemy.sql.expression import text
 from sqlalchemy import MetaData
+from sqlalchemy.orm import relationship
 
 # same function as index=True?
 # users_id_seq = Sequence("users_id_seq", metadata=MetaData(), start=1)
@@ -37,13 +38,18 @@ class Companies(Base):
     )
     company_name = Column(String, nullable=False, unique=True)
     company_key = Column(String, nullable=False, unique=True)
+    is_verified = Column(Boolean, server_default="FALSE")
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
     # broke the tests. circular importing error
     # created_by = Column(
-    #     Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True
+    #     Integer,
+    #     ForeignKey("users.id", ondelete="CASCADE", deferrable=True),
+    #     nullable=True,
     # )
+    # # owner = relationship("Users")
+
 
 
 class Projects(Base):
@@ -65,6 +71,7 @@ class Projects(Base):
     created_by = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
+    owner = relationship("Users")
 
 
 class Offers(Base):
@@ -92,7 +99,9 @@ class Offers(Base):
 class Permissions(Base):
     __tablename__ = "permissions"
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     can_create_project = Column(Boolean, server_default="FALSE")
     can_create_offer = Column(Boolean, server_default="FALSE")
     can_create_product = Column(Boolean, server_default="FALSE")
