@@ -1,18 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
+
+from app.routers.renaming import update_projects
 from .. import schemas, table_models_required
 from ..database import get_db
 from .. import oauth2
 from sqlalchemy import update
+from .utils import check_company_exists, check_company_has_projects, get_company_details
 
 
 router = APIRouter(prefix="/companies", tags=["Companies"])
 
 
-@router.get(
-    "", status_code=status.HTTP_200_OK, response_model=list[schemas.CompanyOut]
-)
+@router.get("", status_code=status.HTTP_200_OK, response_model=list[schemas.CompanyOut])
 def get_companies(
     db: Session = Depends(get_db),
     user=Depends(oauth2.get_current_user),
@@ -61,9 +62,7 @@ def get_companies(
             )
 
 
-@router.post(
-    "", status_code=status.HTTP_201_CREATED, response_model=schemas.CompanyOut
-)
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=schemas.CompanyOut)
 def create_company(
     company: schemas.CompanyCreate,
     db: Session = Depends(get_db),
@@ -77,6 +76,7 @@ def create_company(
             db.add(db_company)
             db.commit()
             db.refresh(db_company)
+            print(db_company.company_key)
             return db_company
         case "test_user":
             db_company = table_models_required.Companies(**company)
@@ -92,24 +92,86 @@ def create_company(
 
 
 @router.delete("/{company_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_company(company_id: int, db: Session = Depends(get_db)):
-    query = delete(table_models_required.Companies).where(table_models_required.Companies.id == company_id).returning(table_models_required.Companies.id)
-    print(query)
-    id = db.execute(query).fetchone()
-    if id == None:
+def delete_company(
+    company_id: int,
+    db: Session = Depends(get_db),
+    user: schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    if not check_company_exists(company_id, db):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Company with id {company_id} does not exist",
         )
-    db.commit()
+    match user.role:
+        case "application_administrator":
+            query = (
+                delete(table_models_required.Companies)
+                .where(table_models_required.Companies.id == company_id)
+                .returning(table_models_required.Companies.id)
+            )
+            db.execute(query)
+            db.commit()
+        case "test_user":
+            query = (
+                delete(table_models_required.Companies)
+                .where(table_models_required.Companies.id == company_id)
+                .returning(table_models_required.Companies.id)
+            )
+            db.execute(query)
+            db.commit()
+
 
 @router.put("/{company_id}", status_code=status.HTTP_202_ACCEPTED)
-def update_company(company_id: int, company: schemas.CompanyCreate, db: Session = Depends(get_db)):
-    query = update(table_models_required.Companies).where(table_models_required.Companies.id == company_id).values(**company.dict()).returning(table_models_required.Companies.id)
-    id = db.execute(query).fetchone()
-    if id == None:
+def update_company(
+    company_id: int,
+    updaded_company: schemas.CompanyCreate,
+    db: Session = Depends(get_db),
+    user: schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    # updating a company key should update all the projects, offers and products that have the company key
+
+    if check_company_exists(company_id, db) == None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Company with id {company_id} does not exist",
         )
-    db.commit()
+    old_company: schemas.CompanyOut = get_company_details(company_id, db)
+
+    match user.role:
+        case "application_administrator":
+            if (
+                old_company.company_key != updaded_company.company_key
+                and check_company_has_projects(company_id, db) != None
+            ):
+                old_company_key = old_company.company_key
+                update_projects(
+                    company_id, old_company_key, updaded_company.company_key, db
+                )
+
+            update_query = (
+                update(table_models_required.Companies)
+                .where(table_models_required.Companies.id == company_id)
+                .values(**updaded_company.dict())
+                .returning(table_models_required.Companies.id)
+            )
+            db.execute(update_query)
+            db.commit()
+        case "test_user":
+            query = (
+                update(table_models_required.Companies)
+                .where(table_models_required.Companies.id == company_id)
+                .values(**updaded_company.dict())
+                .returning(table_models_required.Companies.id)
+            )
+            update_id = db.execute(query).fetchone()
+            if update_id == None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Company with id {company_id} does not exist",
+                )
+            db.commit()
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not authorized to perform this action",
+            )
