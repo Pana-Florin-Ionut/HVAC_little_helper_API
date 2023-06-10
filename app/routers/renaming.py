@@ -18,15 +18,15 @@ def get_projects(company_id: int, db: Session = Depends(get_db)):
             table_models_required.Projects.company_id == company_id
         )
     ).fetchall()
-    for project in projects:
-        print(type(project))
-        # project:
-        print(project)
+    # for project in projects:
+    #     print(type(project))
+    #     # project:
+    #     print(project)
     # print(f"get_projects: {query}")
     # projects: schemas.Project
 
-    print(f"get_projects: {type(projects)}")
-    print(projects)
+    # print(f"get_projects: {type(projects)}")
+    # print(projects)
     return projects
 
 
@@ -36,14 +36,14 @@ def get_all_projects(company_id: int, db: Session = Depends(get_db)):
             table_models_required.Projects.company_id == company_id
         )
     ).all()
-    print(projects)
+    # print(projects)
     # projects should be type dict
-    for project in projects:
-        print(type(project))
-        print(project.project_name)
+    # for project in projects:
+    #     print(type(project))
+    #     print(project.project_name)
     # projects = [schemas.Project(**project) for project in projects]
 
-    print(f"get_all_projects: {projects}")
+    # print(f"get_all_projects: {projects}")
     return projects
 
 
@@ -52,12 +52,12 @@ def update_project_name(
 ):
     print(projects)
     # list_projects_name: list[str] = []
-    print(old_project_name)
-    print(new_project_name)
+    # print(old_project_name)
+    # print(new_project_name)
     for project in projects:
         new_prj: str = project.project_name.replace(old_project_name, new_project_name)
         project.project_name = new_prj
-        print(f"new_prj: {new_prj}")
+        # print(f"new_prj: {new_prj}")
     # print(f"Replaced projects: {list_projects_name}")
     return projects
 
@@ -71,9 +71,9 @@ def update_projects(
     projects = get_all_projects(company_id, db)
     updated_projects = update_project_name(projects, old_company_key, new_company_key)
     for id, project in enumerate(projects):
-        print(f"id: {id}")
-        print(f"project: {project.project_name}")
-        print(f"updated_projects: {updated_projects[id].project_name}")
+        # print(f"id: {id}")
+        # print(f"project: {project.project_name}")
+        # print(f"updated_projects: {updated_projects[id].project_name}")
         query = (
             update(table_models_required.Projects)
             .where(table_models_required.Projects.id == project.id)
