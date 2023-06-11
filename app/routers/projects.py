@@ -23,17 +23,32 @@ def get_projects(
     user: schemas.UserOut = Depends(oauth2.get_current_user),
     db: Session = Depends(get_db),
     company_key: str = "",
-    company_id_requested: int = 0,
+    company_id: int | None = None,
 ):
     match user.role:
         case "application_administrator":
             try:
-                projects = db.execute(
-                    select(table_models_required.Projects)
-                    .where(table_models_required.Projects.project_name.icontains(company_key))
-                    .where(table_models_required.Projects.company_id == company_id_requested)
-                ).fetchall()
-                print(projects)
+                # projects = db.scalars(
+                #     select(table_models_required.Projects).where(
+                #         table_models_required.Projects.project_name.icontains(
+                #             company_key
+                #         )
+                #     )
+                #     # .where(table_models_required.Projects.company_id == company_id_requested)
+                # ).all()
+                query = select(table_models_required.Projects).where(
+                    table_models_required.Projects.project_name.icontains(company_key)
+                )
+                if company_id is not None:
+                    query = query.where(
+                        table_models_required.Projects.company_id == company_id
+                    )
+
+                projects = db.scalars(query).all()
+                # print(type(projects))
+                # p1, p2 = projects
+                # print(f"{p1.company_id}  {p2.company_id}")
+                # print(*projects)
                 return projects
             except Exception as e:
                 print(e)

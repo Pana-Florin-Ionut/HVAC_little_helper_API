@@ -9,41 +9,37 @@ from ..database import get_db
 from .. import table_models_required
 
 
-def get_projects(company_id: int, db: Session = Depends(get_db)):
-    # query = select(table_models_required.Projects).where(
-    #     table_models_required.Projects.company_id == company_id
-    # )
-    projects: list[schemas.Project] = db.execute(
-        select(table_models_required.Projects).where(
-            table_models_required.Projects.company_id == company_id
-        )
-    ).fetchall()
-    # for project in projects:
-    #     print(type(project))
-    #     # project:
-    #     print(project)
-    # print(f"get_projects: {query}")
-    # projects: schemas.Project
+# def get_projects(company_id: int, db: Session = Depends(get_db)):
+#     # query = select(table_models_required.Projects).where(
+#     #     table_models_required.Projects.company_id == company_id
+#     # )
+#     projects: list[schemas.Project] = db.execute(
+#         select(table_models_required.Projects).where(
+#             table_models_required.Projects.company_id == company_id
+#         )
+#     ).fetchall()
+#     # for project in projects:
+#     #     print(type(project))
+#     #     # project:
+#     #     print(project)
+#     # print(f"get_projects: {query}")
+#     # projects: schemas.Project
 
-    # print(f"get_projects: {type(projects)}")
-    # print(projects)
-    return projects
+#     # print(f"get_projects: {type(projects)}")
+#     # print(projects)
+#     return projects
 
 
-def get_all_projects(company_id: int, db: Session = Depends(get_db)):
+def get_all_company_projects(company_id: int, db: Session = Depends(get_db)):
+    """
+    Return all projects from a company
+    It does not check for permissions
+    """
     projects = db.scalars(
         select(table_models_required.Projects).where(
             table_models_required.Projects.company_id == company_id
         )
     ).all()
-    # print(projects)
-    # projects should be type dict
-    # for project in projects:
-    #     print(type(project))
-    #     print(project.project_name)
-    # projects = [schemas.Project(**project) for project in projects]
-
-    # print(f"get_all_projects: {projects}")
     return projects
 
 
@@ -68,7 +64,7 @@ def update_projects(
     new_company_key: str,
     db: Session = Depends(get_db),
 ):
-    projects = get_all_projects(company_id, db)
+    projects = get_all_company_projects(company_id, db)
     updated_projects = update_project_name(projects, old_company_key, new_company_key)
     for id, project in enumerate(projects):
         # print(f"id: {id}")
