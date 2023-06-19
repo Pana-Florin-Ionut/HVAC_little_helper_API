@@ -143,8 +143,35 @@ class CompanyOut(BaseModel):
 
 class Project(BaseModel):
     id: int
+    company_id: int
     project_name: str
     project_key: str
+    created_by: UserOut
+
+    class Config:
+        orm_mode = True
+
+class ProjectCreateAdmin(BaseModel):
+    company_id: int
+    project_name: str
+    project_key: str
+
+    class Config:
+        orm_mode = True
+
+class ProjectCreateUser(BaseModel):
+    project_name: str
+    project_key: str
+
+    class Config:
+        orm_mode = True
+class ProjectOut(BaseModel):
+    id: int
+    company_id: int
+    project_name: str
+    project_key: str
+    created_by: UserOut
+    created: datetime
 
     class Config:
         orm_mode = True
