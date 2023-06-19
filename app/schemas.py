@@ -165,13 +165,15 @@ class ProjectCreateUser(BaseModel):
 
     class Config:
         orm_mode = True
+
 class ProjectOut(BaseModel):
     id: int
     company_id: int
     project_name: str
     project_key: str
-    created_by: UserOut
+    created_by: int
     created: datetime
+    owner: UserOut
 
     class Config:
         orm_mode = True

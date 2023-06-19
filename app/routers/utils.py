@@ -19,11 +19,22 @@ def check_company_has_projects(company_id: int, db: Session = Depends(get_db)):
     )
     return db.execute(query).first()
 
-def check_project_exists(project_id: int, db: Session = Depends(get_db)):
+def check_project_exists_name(project_name: str, db: Session = Depends(get_db)):
     query = select(table_models_required.Projects).where(
-        table_models_required.Projects.id == project_id
+        table_models_required.Projects.project_name == project_name
     )
     return db.execute(query).first()
+
+def check_project_exists_key(project_key: str, db: Session = Depends(get_db)):
+    query = select(table_models_required.Projects).where(
+        table_models_required.Projects.project_key == project_key
+    )
+    return db.execute(query).first()
+def get_project_details(project_key: str, db: Session = Depends(get_db)):
+    query = select(table_models_required.Projects).where(
+        table_models_required.Projects.project_key == project_key
+    )
+    return db.scalars(query).first()
 
 def get_company_projects(company_id: int, db: Session = Depends(get_db)):
     query = select(table_models_required.Projects).where(
