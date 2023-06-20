@@ -79,6 +79,15 @@ def update_projects(
         db.commit()
 
 
+def rename_project_name(old_company_key: str, new_company_key: str, project_name: str):
+    """
+    Project name is made from company_key and project name
+    ex: for company with key TS1 project with the name Project_one will be TS1_Project_one
+
+    """
+    return new_company_key + project_name.removeprefix(old_company_key)
+
+
 # def update_products(
 #     old_company_key: str, new_company_key: str, db: Session = Depends(get_db)
 # ):

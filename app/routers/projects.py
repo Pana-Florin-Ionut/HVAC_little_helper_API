@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.routers.renaming import update_projects
+from app.routers.naming_utils import update_projects
 from .. import schemas, table_models_required
 from ..database import get_db
 from .. import oauth2
