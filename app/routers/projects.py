@@ -25,9 +25,10 @@ router = APIRouter(
 )
 
 # company_key is the company key
+#
 
 
-@router.get("", status_code=status.HTTP_200_OK, response_model=list[schemas.Project])
+@router.get("", status_code=status.HTTP_200_OK, response_model=list[schemas.ProjectOut])
 def get_projects(
     user: schemas.UserOut = Depends(oauth2.get_current_user),
     db: Session = Depends(get_db),
@@ -43,6 +44,7 @@ def get_projects(
         case "application_administrator":
             try:
                 query = select(table_models_required.Projects)
+                print(f"QUERY: {query}")
                 if company_id is not None:
                     query = query.where(
                         table_models_required.Projects.company_id == company_id
@@ -92,7 +94,7 @@ def get_projects(
                         )
                     )
                 query = query.limit(limit).offset(offset)
-                print(query)
+                # print(query)
                 projects = db.scalars(query).all()
 
                 return projects
@@ -283,8 +285,10 @@ def create_project(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Error creating project, please check your inputs",
                 )
+
         case _:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Not authorized to create projects as an admin",
             )
+

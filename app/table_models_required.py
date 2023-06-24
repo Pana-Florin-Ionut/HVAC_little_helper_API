@@ -51,7 +51,6 @@ class Companies(Base):
     # # owner = relationship("Users")
 
 
-
 class Projects(Base):
     __tablename__ = "projects"
     # server_default=projects_id_seq.next_value(),
