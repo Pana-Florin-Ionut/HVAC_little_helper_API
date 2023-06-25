@@ -158,7 +158,12 @@ class ProjectCreateAdmin(BaseModel):
 
     class Config:
         orm_mode = True
+class ProjectUpdateAdmin(BaseModel):
+    company_id: int
+    project_name: str
 
+    class Config:
+        orm_mode = True
 class ProjectCreateUser(BaseModel):
     project_name: str
     project_key: str

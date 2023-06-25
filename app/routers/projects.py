@@ -1,6 +1,6 @@
-from typing import Optional
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.routers.naming_utils import update_projects
@@ -292,3 +292,49 @@ def create_project(
                 detail="Not authorized to create projects as an admin",
             )
 
+
+@router.put(
+    "/admin/{project_key}",
+    response_model=schemas.ProjectOut,
+    status_code=status.HTTP_200_OK,
+)
+def update_project(
+    project_key: str,
+    project: schemas.ProjectUpdateAdmin,
+    user: schemas.UserOut = Depends(oauth2.get_current_user),
+    db: Session = Depends(get_db),
+):
+    match user.role:
+        case "application_administrator":
+            try:
+                if get_project_details(project_key, db) is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Project with key {project_key} does not exist",
+                    )
+                if check_project_exists_name(project.project_name, db) is not None:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"Project with name {project.project_name} already exists. Aborting update.",
+                    )
+
+                query = update(table_models_required.Projects).where(table_models_required.Projects.project_key == project_key).values(**project.dict())
+                print(query)
+                db.execute(query)
+                db.commit()
+                project = get_project_details(project_key, db)
+                return project
+            except sqlalchemy.exc.IntegrityError as e:
+                # print(e)
+                # e.orig.pgcode == "23505" is the error code for unique constraint violation
+                if e.orig.pgcode == "23505":
+                    print("origin")
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"Project with name {project.project_name}  already exists ",
+                    )
+
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Error creating project, please check your inputs",
+                )
