@@ -134,13 +134,15 @@ def delete_company(
     db: Session = Depends(get_db),
     user: schemas.UserOut = Depends(oauth2.get_current_user),
 ):
-    if not check_company_exists(company_id, db):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Company with id {company_id} does not exist",
-        )
+    
     match user.role:
+        
         case "application_administrator":
+            if not check_company_exists(company_id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Company with id {company_id} does not exist",
+                )
             query = (
                 delete(table_models_required.Companies)
                 .where(table_models_required.Companies.id == company_id)
@@ -149,6 +151,11 @@ def delete_company(
             db.execute(query)
             db.commit()
         case "test_user":
+            if not check_company_exists(company_id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Company with id {company_id} does not exist",
+                )
             query = (
                 delete(table_models_required.Companies)
                 .where(table_models_required.Companies.id == company_id)

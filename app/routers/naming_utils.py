@@ -1,6 +1,6 @@
 from fastapi import Depends
 from pytest import Session
-from sqlalchemy import select, update
+from sqlalchemy import exists, literal, select, update
 
 from app import schemas
 
@@ -25,10 +25,10 @@ from .. import table_models_required
 #     # print(f"get_projects: {query}")
 #     # projects: schemas.Project
 
+
 #     # print(f"get_projects: {type(projects)}")
 #     # print(projects)
 #     return projects
-
 
 def get_all_company_projects(company_id: int, db: Session = Depends(get_db)):
     """
@@ -86,6 +86,7 @@ def rename_project_name(old_company_key: str, new_company_key: str, project_name
 
     """
     return new_company_key + project_name.removeprefix(old_company_key)
+
 
 
 # def update_products(

@@ -32,7 +32,7 @@ def check_project_exists_key(project_key: str, db: Session = Depends(get_db)):
     query = select(table_models_required.Projects).where(
         table_models_required.Projects.project_key == project_key
     )
-    return db.execute(query).first()
+    return db.scalars(query).first()
 
 
 def get_project_details(project_key: str, db: Session = Depends(get_db)):

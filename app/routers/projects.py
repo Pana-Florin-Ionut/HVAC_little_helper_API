@@ -2,16 +2,12 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
-
-from app.routers.naming_utils import update_projects
 from .. import schemas, table_models_required
 from ..database import get_db
 from .. import oauth2
 from sqlalchemy import update
 from .utils import (
-    check_company_exists,
-    check_company_has_projects,
-    get_company_details,
+
     check_project_exists_name,
     check_project_exists_key,
     get_project_details,
@@ -318,7 +314,11 @@ def update_project(
                         detail=f"Project with name {project.project_name} already exists. Aborting update.",
                     )
 
-                query = update(table_models_required.Projects).where(table_models_required.Projects.project_key == project_key).values(**project.dict())
+                query = (
+                    update(table_models_required.Projects)
+                    .where(table_models_required.Projects.project_key == project_key)
+                    .values(**project.dict())
+                )
                 print(query)
                 db.execute(query)
                 db.commit()
@@ -338,3 +338,61 @@ def update_project(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Error creating project, please check your inputs",
                 )
+
+
+@router.delete("/{project_key}", status_code=status.HTTP_200_OK)
+def delete_project(
+    project_key: str,
+    db: Session = Depends(get_db),
+    user: schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    match user.role:
+        case "application_administrator":
+            if get_project_details(project_key, db) is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Project with key {project_key} does not exist",
+                )
+            try:
+                query = delete(table_models_required.Projects).where(
+                    table_models_required.Projects.project_key == project_key
+                )
+                db.execute(query)
+                db.commit()
+                return {
+                    "message": f"Project with key {project_key} deleted successfully"
+                }
+            except Exception as e:
+                print(e)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Error deleting project, please check your inputs",
+                )
+        case "admin":
+            if check_project_exists_key(project_key, db) is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Project with key {project_key} does not exist",
+                )
+            try:
+                query = (
+                    delete(table_models_required.Projects)
+                    .where(table_models_required.Projects.company_id == user.company_id)
+                    .where(table_models_required.Projects.project_key == project_key)
+                )
+                db.execute(query)
+                db.commit()
+                return {
+                    "message": f"Project with key {project_key} deleted successfully"
+                }
+            except Exception as e:
+                print(e)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Error deleting project, please check your inputs",
+                )
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authorized to delete projects as an admin",
+            )
