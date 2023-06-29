@@ -1,6 +1,6 @@
 from fastapi import Depends
 from pytest import Session
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from .. import table_models_required
 
 from ..database import get_db
@@ -12,6 +12,20 @@ def check_company_exists(company_id: int, db: Session = Depends(get_db)):
     )
     # print(query, db.execute(query).first())
     return db.execute(query).first()
+
+
+def project_exists_key(project_key: str, db: Session = Depends(get_db)) -> bool:
+    is_present = db.query(
+        exists().where(table_models_required.Projects.project_key == project_key)
+    ).scalar()
+    return is_present
+
+
+def project_exists_name(project_name: str, db: Session = Depends(get_db)) -> bool:
+    is_present = db.query(
+        exists().where(table_models_required.Projects.project_name == project_name)
+    ).scalar()
+    return is_present
 
 
 def check_company_has_projects(company_id: int, db: Session = Depends(get_db)):

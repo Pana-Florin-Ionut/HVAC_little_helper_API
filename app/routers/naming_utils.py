@@ -9,6 +9,8 @@ from ..database import get_db
 from .. import table_models_required
 
 
+
+
 # def get_projects(company_id: int, db: Session = Depends(get_db)):
 #     # query = select(table_models_required.Projects).where(
 #     #     table_models_required.Projects.company_id == company_id

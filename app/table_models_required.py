@@ -1,10 +1,20 @@
 from datetime import datetime
 from .database import Base
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Table, Sequence
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Boolean,
+    ForeignKey,
+    Table,
+    Sequence,
+    UniqueConstraint,
+)
 from sqlalchemy.sql.sqltypes import TIMESTAMP
 from sqlalchemy.sql.expression import text
 from sqlalchemy import MetaData
 from sqlalchemy.orm import relationship
+from sqlalchemy import PrimaryKeyConstraint
 
 # same function as index=True?
 # users_id_seq = Sequence("users_id_seq", metadata=MetaData(), start=1)
@@ -136,3 +146,17 @@ class Products(Base):
     created_by = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
+
+
+class TestProduct(Base):
+    __tablename__ = "test_products"
+    id = Column(Integer, index=True, primary_key=True)
+    company_id = Column(
+        Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
+    )
+    product_name = Column(String, nullable=False)
+    details = Column(String, nullable=True)
+    created = Column(
+        TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
+    )
+    UniqueConstraint(company_id, product_name)

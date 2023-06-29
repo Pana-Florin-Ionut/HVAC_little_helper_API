@@ -7,10 +7,11 @@ from ..database import get_db
 from .. import oauth2
 from sqlalchemy import update
 from .utils import (
-
+    project_exists_key,
     check_project_exists_name,
     check_project_exists_key,
     get_project_details,
+    project_exists_name,
 )
 import sqlalchemy
 from .. import user_permissions
@@ -240,16 +241,18 @@ def create_project(
     db: Session = Depends(get_db),
     user: schemas.UserOut = Depends(oauth2.get_current_user),
 ):
-    if check_project_exists_name(project.project_name, db) is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Project with name {project.project_name} already exists",
-        )
-    if check_project_exists_key(project.project_key, db) is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Project with key {project.project_key} already exists",
-        )
+    # company_details = get
+    # new_project_name = 
+    # if project_exists_name(project.project_name, db):
+    #     raise HTTPException(
+    #         status_code=status.HTTP_409_CONFLICT,
+    #         detail=f"Project with name {project.project_name} already exists",
+    #     )
+    # if project_exists_key(project.project_key, db):
+    #     raise HTTPException(
+    #         status_code=status.HTTP_409_CONFLICT,
+    #         detail=f"Project with key {project.project_key} already exists",
+    #     )
     match user.role:
         case "application_administrator":
             try:
@@ -261,7 +264,6 @@ def create_project(
                 db.commit()
                 db.refresh(db_project)
                 project = get_project_details(db_project.project_key, db)
-                print(project)
                 return project
             except sqlalchemy.exc.IntegrityError as e:
                 # e.orig.pgcode == "23505" is the error code for unique constraint violation
@@ -308,10 +310,10 @@ def update_project(
                         status_code=status.HTTP_404_NOT_FOUND,
                         detail=f"Project with key {project_key} does not exist",
                     )
-                if check_project_exists_name(project.project_name, db) is not None:
+                if not project_exists_key(project_key, db):
                     raise HTTPException(
-                        status_code=status.HTTP_409_CONFLICT,
-                        detail=f"Project with name {project.project_name} already exists. Aborting update.",
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Project with key {project_key} does not exist",
                     )
 
                 query = (
@@ -319,7 +321,6 @@ def update_project(
                     .where(table_models_required.Projects.project_key == project_key)
                     .values(**project.dict())
                 )
-                print(query)
                 db.execute(query)
                 db.commit()
                 project = get_project_details(project_key, db)
@@ -340,6 +341,20 @@ def update_project(
                 )
 
 
+@router.get("/admin/{project_key}")
+def get_project_test(
+    project_key: str,
+    db: Session = Depends(get_db),
+):
+    if project_exists_key(project_key, db):
+        return {"message": "Project exists"}
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project with key {project_key} does not exist",
+        )
+
+
 @router.delete("/{project_key}", status_code=status.HTTP_200_OK)
 def delete_project(
     project_key: str,
@@ -348,7 +363,7 @@ def delete_project(
 ):
     match user.role:
         case "application_administrator":
-            if get_project_details(project_key, db) is None:
+            if not project_exists_key(project_key, db):
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Project with key {project_key} does not exist",
@@ -369,7 +384,7 @@ def delete_project(
                     detail=f"Error deleting project, please check your inputs",
                 )
         case "admin":
-            if check_project_exists_key(project_key, db) is None:
+            if not project_exists_key(project_key, db):
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Project with key {project_key} does not exist",
