@@ -129,9 +129,6 @@ class CompanyCreate(BaseModel):
         orm_mode = True
 
 
-
-
-
 class CompanyOut(BaseModel):
     id: int
     company_name: str
@@ -158,12 +155,13 @@ class ProjectCreateAdmin(BaseModel):
 
     class Config:
         orm_mode = True
+
 class ProjectUpdateAdmin(BaseModel):
-    company_id: int
     project_name: str
 
     class Config:
         orm_mode = True
+        
 class ProjectCreateUser(BaseModel):
     project_name: str
     project_key: str
@@ -179,6 +177,7 @@ class ProjectOut(BaseModel):
     created_by: int
     created: datetime
     owner: UserOut
+    company: CompanyOut
 
     class Config:
         orm_mode = True

@@ -72,15 +72,21 @@ class Projects(Base):
     company_id = Column(
         Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
     )
-    project_name = Column(String, nullable=False, unique=True)
-    project_key = Column(String, nullable=False, unique=True)
+    # company_key = Column(
+    #     String, ForeignKey("companies.company_key", ondelete="Cascade"), nullable=False
+    # )
+    project_name = Column(String, nullable=False)
+    project_key = Column(String, nullable=False)
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
     created_by = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
+    UniqueConstraint(company_id, project_name, name="unique_project_name_for_company")
+    UniqueConstraint(company_id, project_key, name="unique_project_key_for_company")
     owner = relationship("Users")
+    company = relationship("Companies")
 
 
 class Offers(Base):
@@ -146,17 +152,3 @@ class Products(Base):
     created_by = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-
-
-class TestProduct(Base):
-    __tablename__ = "test_products"
-    id = Column(Integer, index=True, primary_key=True)
-    company_id = Column(
-        Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
-    )
-    product_name = Column(String, nullable=False)
-    details = Column(String, nullable=True)
-    created = Column(
-        TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
-    )
-    UniqueConstraint(company_id, product_name)

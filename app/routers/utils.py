@@ -14,10 +14,24 @@ def check_company_exists(company_id: int, db: Session = Depends(get_db)):
     return db.execute(query).first()
 
 
-def project_exists_key(project_key: str, db: Session = Depends(get_db)) -> bool:
+def project_exists_key(
+    project_key: str, company_key: str, db: Session = Depends(get_db)
+) -> bool:
+    """
+    Checks if a project exists with the given key for a company.
+    :param project_key:
+    :param company_key:
+    :param db:
+    :return bool:
+
+    """
     is_present = db.query(
-        exists().where(table_models_required.Projects.project_key == project_key)
+        exists()
+        .where(table_models_required.Projects.project_key == project_key)
+        .where(table_models_required.Projects.company.has(company_key=company_key))
     ).scalar()
+
+    # print(query)
     return is_present
 
 
@@ -49,9 +63,24 @@ def check_project_exists_key(project_key: str, db: Session = Depends(get_db)):
     return db.scalars(query).first()
 
 
-def get_project_details(project_key: str, db: Session = Depends(get_db)):
-    query = select(table_models_required.Projects).where(
-        table_models_required.Projects.project_key == project_key
+def get_project_details_Co_key(
+    project_key: str, company_key: str, db: Session = Depends(get_db)
+):
+    query = (
+        select(table_models_required.Projects)
+        .where(table_models_required.Projects.project_key == project_key)
+        .where(table_models_required.Projects.company.has(company_key=company_key))
+    )
+    return db.scalars(query).first()
+
+
+def get_project_details_Co_id(
+    project_key: str, company_id: int, db: Session = Depends(get_db)
+):
+    query = (
+        select(table_models_required.Projects)
+        .where(table_models_required.Projects.project_key == project_key)
+        .where(table_models_required.Projects.company_id == company_id)
     )
     return db.scalars(query).first()
 

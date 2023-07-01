@@ -7,10 +7,11 @@ from ..database import get_db
 from .. import oauth2
 from sqlalchemy import update
 from .utils import (
+    get_project_details_Co_id,
     project_exists_key,
     check_project_exists_name,
     check_project_exists_key,
-    get_project_details,
+    get_project_details_Co_key,
     project_exists_name,
 )
 import sqlalchemy
@@ -41,7 +42,7 @@ def get_projects(
         case "application_administrator":
             try:
                 query = select(table_models_required.Projects)
-                print(f"QUERY: {query}")
+                # print(f"QUERY: {query}")
                 if company_id is not None:
                     query = query.where(
                         table_models_required.Projects.company_id == company_id
@@ -242,7 +243,7 @@ def create_project(
     user: schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     # company_details = get
-    # new_project_name = 
+    # new_project_name =
     # if project_exists_name(project.project_name, db):
     #     raise HTTPException(
     #         status_code=status.HTTP_409_CONFLICT,
@@ -263,20 +264,29 @@ def create_project(
                 db.add(db_project)
                 db.commit()
                 db.refresh(db_project)
-                project = get_project_details(db_project.project_key, db)
+                project = get_project_details_Co_id(
+                    db_project.project_key, db_project.company_id, db
+                )
                 return project
             except sqlalchemy.exc.IntegrityError as e:
-                # e.orig.pgcode == "23505" is the error code for unique constraint violation
+                # print(e.orig.pgcode)
                 if e.orig.pgcode == "23505":
+                    # e.orig.pgcode == "23505" is the error code for unique constraint violation
                     raise HTTPException(
                         status_code=status.HTTP_409_CONFLICT,
                         detail=f"Project with name {project.project_name} or key {project.project_key} already exists ",
                     )
-
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Error creating project, please check your inputs",
-                )
+                elif e.orig.pgcode == "23503":
+                    # 23503 pgcode is psycopg2.errors.ForeignKeyViolation
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Company with id {project.company_id} does not exist",
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Error creating project, please check your inputs",
+                    )
             except Exception as e:
                 print(e)
                 raise HTTPException(
@@ -292,11 +302,12 @@ def create_project(
 
 
 @router.put(
-    "/admin/{project_key}",
+    "/admin/{company_key}/{project_key}",
     response_model=schemas.ProjectOut,
     status_code=status.HTTP_200_OK,
 )
 def update_project(
+    company_key: str,
     project_key: str,
     project: schemas.ProjectUpdateAdmin,
     user: schemas.UserOut = Depends(oauth2.get_current_user),
@@ -305,25 +316,32 @@ def update_project(
     match user.role:
         case "application_administrator":
             try:
-                if get_project_details(project_key, db) is None:
+                # if get_project_details(project_key, db) is None:
+                #     raise HTTPException(
+                #         status_code=status.HTTP_404_NOT_FOUND,
+                #         detail=f"Project with key {project_key} does not exist",
+                #     )
+                if not project_exists_key(project_key, company_key, db):
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
-                        detail=f"Project with key {project_key} does not exist",
-                    )
-                if not project_exists_key(project_key, db):
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail=f"Project with key {project_key} does not exist",
+                        detail=f"Project with key {project_key} for company {company_key} does not exist",
                     )
 
                 query = (
                     update(table_models_required.Projects)
                     .where(table_models_required.Projects.project_key == project_key)
+                    .filter(
+                        table_models_required.Projects.company.has(
+                            company_key=company_key
+                        )
+                    )
+                    # .filter(table_models_required.Companies.company_key == company_key)
                     .values(**project.dict())
                 )
+                # print(query)
                 db.execute(query)
                 db.commit()
-                project = get_project_details(project_key, db)
+                project = get_project_details_Co_key(project_key, company_key, db)
                 return project
             except sqlalchemy.exc.IntegrityError as e:
                 # print(e)
