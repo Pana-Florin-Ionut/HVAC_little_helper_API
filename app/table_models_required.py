@@ -72,9 +72,6 @@ class Projects(Base):
     company_id = Column(
         Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
     )
-    # company_key = Column(
-    #     String, ForeignKey("companies.company_key", ondelete="Cascade"), nullable=False
-    # )
     project_name = Column(String, nullable=False)
     project_key = Column(String, nullable=False)
     created = Column(

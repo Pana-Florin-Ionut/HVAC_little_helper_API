@@ -9,10 +9,8 @@ from sqlalchemy import update
 from .utils import (
     get_project_details_Co_id,
     project_exists_key,
-    check_project_exists_name,
-    check_project_exists_key,
     get_project_details_Co_key,
-    project_exists_name,
+
 )
 import sqlalchemy
 from .. import user_permissions
@@ -184,6 +182,10 @@ def create_project(
     user: schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     match user.role:
+        case "application_administrator":
+            raise HTTPException(
+                status_code=status.HTTP_303_SEE_OTHER, details="Use URL/projects/admin"
+            )
         case "admin" | "manager" | "user":
             try:
                 db_project: dict = table_models_required.Projects(
@@ -242,18 +244,6 @@ def create_project(
     db: Session = Depends(get_db),
     user: schemas.UserOut = Depends(oauth2.get_current_user),
 ):
-    # company_details = get
-    # new_project_name =
-    # if project_exists_name(project.project_name, db):
-    #     raise HTTPException(
-    #         status_code=status.HTTP_409_CONFLICT,
-    #         detail=f"Project with name {project.project_name} already exists",
-    #     )
-    # if project_exists_key(project.project_key, db):
-    #     raise HTTPException(
-    #         status_code=status.HTTP_409_CONFLICT,
-    #         detail=f"Project with key {project.project_key} already exists",
-    #     )
     match user.role:
         case "application_administrator":
             try:
@@ -316,11 +306,6 @@ def update_project(
     match user.role:
         case "application_administrator":
             try:
-                # if get_project_details(project_key, db) is None:
-                #     raise HTTPException(
-                #         status_code=status.HTTP_404_NOT_FOUND,
-                #         detail=f"Project with key {project_key} does not exist",
-                #     )
                 if not project_exists_key(project_key, company_key, db):
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
@@ -335,16 +320,13 @@ def update_project(
                             company_key=company_key
                         )
                     )
-                    # .filter(table_models_required.Companies.company_key == company_key)
                     .values(**project.dict())
                 )
-                # print(query)
                 db.execute(query)
                 db.commit()
                 project = get_project_details_Co_key(project_key, company_key, db)
                 return project
             except sqlalchemy.exc.IntegrityError as e:
-                # print(e)
                 # e.orig.pgcode == "23505" is the error code for unique constraint violation
                 if e.orig.pgcode == "23505":
                     print("origin")
@@ -357,20 +339,6 @@ def update_project(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Error creating project, please check your inputs",
                 )
-
-
-@router.get("/admin/{project_key}")
-def get_project_test(
-    project_key: str,
-    db: Session = Depends(get_db),
-):
-    if project_exists_key(project_key, db):
-        return {"message": "Project exists"}
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Project with key {project_key} does not exist",
-        )
 
 
 @router.delete("/{project_key}", status_code=status.HTTP_200_OK)
