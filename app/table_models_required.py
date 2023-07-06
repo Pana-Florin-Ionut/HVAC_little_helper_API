@@ -6,6 +6,7 @@ from sqlalchemy import (
     String,
     Boolean,
     ForeignKey,
+    Double,
     Table,
     Sequence,
     UniqueConstraint,
@@ -100,7 +101,7 @@ class Offers(Base):
     offer_name = Column(String, nullable=False, unique=True)
     offer_key = Column(String, nullable=False, unique=True)
     is_finalized = Column(Boolean, server_default="TRUE", nullable=True, default=False)
-    timestamp = Column(
+    created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
     created_by = Column(
@@ -133,7 +134,7 @@ class Permissions(Base):
 class Products(Base):
     __tablename__ = "products"
     id = Column(Integer, primary_key=True, index=True)
-    product_name = Column(String, nullable=False, unique=True)
+    product_name = Column(String, nullable=False)
     product_key = Column(String, nullable=False, unique=True)
     ch1 = Column(String, nullable=False)
     ch2 = Column(String, nullable=False)
@@ -143,9 +144,54 @@ class Products(Base):
     ch6 = Column(String, nullable=False)
     ch7 = Column(String, nullable=False)
     ch8 = Column(String, nullable=False)
+    UM = Column(Double, nullable=False)
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
     created_by = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
+
+
+class CompanyConnections(Base):
+    __tablename__ = "company_connections"
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(
+        Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
+    )
+    friend_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
+
+
+class OffersBody(Base):
+    __tablename__ = "offers_body"
+    id = Column(Integer, primary_key=True, index=True)
+    offer_id = Column(Integer, ForeignKey("offers.id"), nullable=False)
+    product_name = Column(String, nullable=False)
+    product_key = Column(String, nullable=False)
+    ch_1 = Column(Double, nullable=True)
+    ch_2 = Column(Double, nullable=True)
+    ch_3 = Column(Double, nullable=True)
+    ch_4 = Column(Double, nullable=True)
+    ch_5 = Column(Double, nullable=True)
+    ch_6 = Column(Double, nullable=True)
+    ch_7 = Column(Double, nullable=True)
+    ch_8 = Column(Double, nullable=True)  # db need to be updated to include this column
+    um = Column(String, nullable=False)
+    quantity = Column(Double, nullable=False)
+    observations = Column(String, nullable=True)
+
+    created = Column(
+        TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
+    )
+    created_by = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+
+
+class OfferPrices(Base):
+    __tablename__ = "offer_prices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    offering_company = Column(Integer, ForeignKey("companies.id"), nullable=False)
+    offer_product_id = Column(Integer, ForeignKey("offers_body.id"), nullable=False)
+    price = Column(Double, nullable=False)
