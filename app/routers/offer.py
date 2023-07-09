@@ -3,7 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from ..utils import get_offer_details
 import sqlalchemy
-from .. import schemas, oauth2, table_models_required, table_models_optional, tables
+from .. import oauth2, table_models_required, table_models_optional, tables
+from ..schemas import offers as offers_schemas
+from ..schemas import products as products_schemas
+from ..schemas import users as users_schemas
 from ..database import engine
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import text
@@ -22,11 +25,11 @@ def create_new_offer_table(offer_name):
 def create_offer_table(
     offer_name: str,
     db: Session = Depends(get_db),
-    user: schemas.UserOut = Depends(oauth2.get_current_user),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     # this function should be triggered by the POST offers endpoint
     # print(user)
-    print(offer_name)
+    # print(offer_name)
     if user_permissions.can_create_offer(user.id, db):
         try:
             table_models_optional.create_offer_table(engine, offer_name)
@@ -39,11 +42,11 @@ def create_offer_table(
             )
 
 
-@router.get("/", response_model=List[schemas.Product], status_code=status.HTTP_200_OK)
+@router.get("/", response_model=List[offers_schemas.Product], status_code=status.HTTP_200_OK)
 def get_offer(
     offer_name: str,
     db: Session = Depends(get_db),
-    user: schemas.UserOut = Depends(oauth2.get_current_user),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     if user_permissions.can_view_offer(user.id, db):
         try:
@@ -77,7 +80,7 @@ def get_offer(
 def delete_offer(
     offer_name: str,
     db: Session = Depends(get_db),
-    user: schemas.UserOut = Depends(oauth2.get_current_user),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     if user.company_id is None or user.role != "administrator":
         raise HTTPException(
@@ -116,7 +119,7 @@ def update_offer(
     offer_name: str,
     new_offer_name: str,
     db: Session = Depends(get_db),
-    user: schemas.UserOut = Depends(oauth2.get_current_user),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     if user.company_id is None or user.role != "administrator":
         raise HTTPException(
@@ -153,9 +156,9 @@ def update_offer(
 @router.post("/add_product", status_code=status.HTTP_202_ACCEPTED)
 def add_product_to_offer(
     offer_name: str,
-    product: schemas.Product,
+    product: products_schemas.Product,
     db: Session = Depends(get_db),
-    user: schemas.UserOut = Depends(oauth2.get_current_user),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     print(product)
     if user.company_id is None or user.role != "administrator":

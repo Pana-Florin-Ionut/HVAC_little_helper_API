@@ -2,7 +2,9 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
-from .. import schemas, table_models_required
+from .. import table_models_required
+from ..schemas import projects as schema_projects
+from ..schemas import users as schema_users
 from ..database import get_db
 from .. import oauth2
 from sqlalchemy import update
@@ -10,7 +12,6 @@ from .utils import (
     get_project_details_Co_id,
     project_exists_key,
     get_project_details_Co_key,
-
 )
 import sqlalchemy
 from .. import user_permissions
@@ -24,9 +25,11 @@ router = APIRouter(
 #
 
 
-@router.get("", status_code=status.HTTP_200_OK, response_model=list[schemas.ProjectOut])
+@router.get(
+    "", status_code=status.HTTP_200_OK, response_model=list[schema_projects.ProjectOut]
+)
 def get_projects(
-    user: schemas.UserOut = Depends(oauth2.get_current_user),
+    user: schema_users.UserOut = Depends(oauth2.get_current_user),
     db: Session = Depends(get_db),
     company_key: Optional[str] = None,
     company_id: Optional[int] = None,
@@ -175,11 +178,13 @@ def get_projects(
             )
 
 
-@router.post("", response_model=schemas.ProjectOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "", response_model=schema_projects.ProjectOut, status_code=status.HTTP_201_CREATED
+)
 def create_project(
-    project: schemas.ProjectCreateUser,
+    project: schema_projects.ProjectCreateUser,
     db: Session = Depends(get_db),
-    user: schemas.UserOut = Depends(oauth2.get_current_user),
+    user: schema_users.UserOut = Depends(oauth2.get_current_user),
 ):
     match user.role:
         case "application_administrator":
@@ -237,12 +242,14 @@ def create_project(
 
 
 @router.post(
-    "/admin", response_model=schemas.ProjectOut, status_code=status.HTTP_201_CREATED
+    "/admin",
+    response_model=schema_projects.ProjectOut,
+    status_code=status.HTTP_201_CREATED,
 )
 def create_project(
-    project: schemas.ProjectCreateAdmin,
+    project: schema_projects.ProjectCreateAdmin,
     db: Session = Depends(get_db),
-    user: schemas.UserOut = Depends(oauth2.get_current_user),
+    user: schema_users.UserOut = Depends(oauth2.get_current_user),
 ):
     match user.role:
         case "application_administrator":
@@ -293,14 +300,14 @@ def create_project(
 
 @router.put(
     "/admin/{company_key}/{project_key}",
-    response_model=schemas.ProjectOut,
+    response_model=schema_projects.ProjectOut,
     status_code=status.HTTP_200_OK,
 )
 def update_project(
     company_key: str,
     project_key: str,
-    project: schemas.ProjectUpdateAdmin,
-    user: schemas.UserOut = Depends(oauth2.get_current_user),
+    project: schema_projects.ProjectUpdateAdmin,
+    user: schema_users.UserOut = Depends(oauth2.get_current_user),
     db: Session = Depends(get_db),
 ):
     match user.role:
@@ -341,22 +348,29 @@ def update_project(
                 )
 
 
-@router.delete("/{project_key}", status_code=status.HTTP_200_OK)
+@router.delete("/{company_key}/{project_key}", status_code=status.HTTP_200_OK)
 def delete_project(
     project_key: str,
+    company_key: str,
     db: Session = Depends(get_db),
-    user: schemas.UserOut = Depends(oauth2.get_current_user),
+    user: schema_users.UserOut = Depends(oauth2.get_current_user),
 ):
     match user.role:
         case "application_administrator":
-            if not project_exists_key(project_key, db):
+            if not project_exists_key(project_key, company_key, db):
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Project with key {project_key} does not exist",
+                    detail=f"Project with key {project_key} for company {company_key} does not exist",
                 )
             try:
-                query = delete(table_models_required.Projects).where(
-                    table_models_required.Projects.project_key == project_key
+                query = (
+                    delete(table_models_required.Projects)
+                    .where(table_models_required.Projects.project_key == project_key)
+                    .where(
+                        table_models_required.Projects.company.has(
+                            company_key=company_key
+                        )
+                    )
                 )
                 db.execute(query)
                 db.commit()
@@ -392,6 +406,7 @@ def delete_project(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Error deleting project, please check your inputs",
                 )
+
         case _:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

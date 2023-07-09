@@ -7,6 +7,8 @@ from .. import schemas, table_models_required
 from ..database import get_db
 from .. import oauth2
 from sqlalchemy import update
+from ..schemas import companies as companies_schema
+from ..schemas import users as users_schemas
 from .utils import check_company_exists, check_company_has_projects, get_company_details
 import sqlalchemy
 
@@ -14,7 +16,9 @@ import sqlalchemy
 router = APIRouter(prefix="/companies", tags=["Companies"])
 
 
-@router.get("", status_code=status.HTTP_200_OK, response_model=list[schemas.CompanyOut])
+@router.get(
+    "", status_code=status.HTTP_200_OK, response_model=list[companies_schema.CompanyOut]
+)
 def get_companies(
     db: Session = Depends(get_db),
     user=Depends(oauth2.get_current_user),
@@ -70,11 +74,13 @@ def get_companies(
             )
 
 
-@router.post("", status_code=status.HTTP_201_CREATED, response_model=schemas.CompanyOut)
+@router.post(
+    "", status_code=status.HTTP_201_CREATED, response_model=companies_schema.CompanyOut
+)
 def create_company(
-    company: schemas.CompanyCreate,
+    company: companies_schema.CompanyCreate,
     db: Session = Depends(get_db),
-    user: schemas.UserOut = Depends(oauth2.get_current_user),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     match user.role:
         case "application_administrator":
@@ -87,7 +93,7 @@ def create_company(
                 db.refresh(db_company)
                 # print(db_company.company_key)
                 return db_company
-            except sqlalchemy.exc.IntegrityError  as e:
+            except sqlalchemy.exc.IntegrityError as e:
                 if e.orig.pgcode == "23505":
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
@@ -109,7 +115,7 @@ def create_company(
                 db.refresh(db_company)
                 # print(db_company.company_key)
                 return db_company
-            except sqlalchemy.exc.IntegrityError  as e:
+            except sqlalchemy.exc.IntegrityError as e:
                 if e.orig.pgcode == "23505":
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
@@ -132,11 +138,9 @@ def create_company(
 def delete_company(
     company_id: int,
     db: Session = Depends(get_db),
-    user: schemas.UserOut = Depends(oauth2.get_current_user),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
-    
     match user.role:
-        
         case "application_administrator":
             if not check_company_exists(company_id, db):
                 raise HTTPException(
@@ -173,9 +177,9 @@ def delete_company(
 @router.put("/{company_id}", status_code=status.HTTP_202_ACCEPTED)
 def update_company(
     company_id: int,
-    updaded_company: schemas.CompanyCreate,
+    updaded_company: companies_schema.CompanyCreate,
     db: Session = Depends(get_db),
-    user: schemas.UserOut = Depends(oauth2.get_current_user),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     # updating a company key should update all the projects, offers and products that have the company key
 
@@ -185,7 +189,7 @@ def update_company(
             detail=f"Company with id {company_id} does not exist",
         )
 
-    old_company: schemas.CompanyOut = get_company_details(company_id, db)
+    old_company: companies_schema.CompanyOut = get_company_details(company_id, db)
     if (
         old_company.company_name == updaded_company.company_name
         and old_company.company_key == updaded_company.company_key

@@ -4,7 +4,9 @@ from typing import List
 from . import offer as create_offer_table
 import sqlalchemy
 from sqlalchemy import select, update, delete, insert
-from .. import schemas, oauth2, table_models_required
+from .. import oauth2, table_models_required
+from ..schemas import offers as offer_schemas
+from ..schemas import users as users_schemas
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import user_permissions
@@ -17,30 +19,44 @@ router = APIRouter(prefix="/offers", tags=["Offers"])
 @router.get(
     "",
     status_code=status.HTTP_200_OK,
-    response_model=List[schemas.OffersRetrieve],
+    response_model=List[offer_schemas.OffersRetrieve],
 )
 async def offers(
     db: Session = Depends(get_db),
-    user: schemas.UserOut = Depends(oauth2.get_current_user),
-    limit: int = 10,
-    skip: int = 0,
-    company_id: int = 0,
-    offer_name="",
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+    company_key: str = "",
+    offer_key: str = "",
     search="",
-    sort="",
-    filter="",
     created_by: int = 0,
+    sort="",
+    limit: int = 100,
+    skip: int = 0,
+    filter="",
 ):
     print(f"User: {user.role}")
     match user.role:
         case "application_administrator":
             try:
-                return db.scalars(select(table_models_required.Offers)
-                    .where(table_models_required.Offers.company_id == company_id)
-                    .where(table_models_required.Offers.offer_name.icontains(search))
-                    .where(table_models_required.Offers.created_by == created_by)
-                    ).all()
-        
+                query = select(table_models_required.Offers)
+                if company_key != "":
+                    query = query.where(
+                        table_models_required.Offers.company_id == company_key
+                    )
+                if offer_key != "":
+                    query = query.where(
+                        table_models_required.Offers.offer_key == offer_key
+                    )
+                if search != "":
+                    query = query.where(
+                        table_models_required.Offers.offer_name.contains(search)
+                    )
+                if created_by > 0:
+                    query = query.where(
+                        table_models_required.Offers.created_by == created_by
+                    )
+                # print(query)
+                return db.scalars(query).all()
+
             except Exception as e:
                 print(e)
                 raise HTTPException(
@@ -93,10 +109,10 @@ async def offers(
 @router.post(
     "",
     status_code=status.HTTP_201_CREATED,
-    response_model=schemas.OffersRetrieve,
+    response_model=offer_schemas.OffersRetrieve,
 )
 def create_offer(
-    offer: schemas.OffersCreate,
+    offer: offer_schemas.OffersCreate,
     db: Session = Depends(get_db),
     user: int = Depends(oauth2.get_current_user),
 ):

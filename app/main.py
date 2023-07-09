@@ -4,9 +4,12 @@ from . import table_models_optional
 from .database import engine, get_db
 from . import tables
 from .database_model import Database as db
-from . import schemas, oauth2
+from . import oauth2
 from .database_connection import conn
 from . import user_permissions
+from .schemas import offers as offers_schemas
+from .schemas import users as users_schemas
+
 
 from .routers import companies, offer, projects, users, offers, auth
 from . import table_models_required
@@ -52,7 +55,7 @@ async def get_offer(id: int):
 
 
 @app.put("/offers/{id}")
-async def update_offer(id: int, offer: schemas.Offer):
+async def update_offer(id: int, offer: offers_schemas.Offer):
     index = "offer"
     print("Index" + str(index))
     if not index:

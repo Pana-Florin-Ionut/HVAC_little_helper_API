@@ -2,7 +2,7 @@ from fastapi import Depends
 from pytest import Session
 from sqlalchemy import exists, literal, select, update
 
-from app import schemas
+from ..schemas import projects as project_schemas 
 
 from ..database import get_db
 
@@ -15,7 +15,7 @@ from .. import table_models_required
 #     # query = select(table_models_required.Projects).where(
 #     #     table_models_required.Projects.company_id == company_id
 #     # )
-#     projects: list[schemas.Project] = db.execute(
+#     projects: list[fschemasProject] = db.execute(
 #         select(table_models_required.Projects).where(
 #             table_models_required.Projects.company_id == company_id
 #         )
@@ -25,7 +25,7 @@ from .. import table_models_required
 #     #     # project:
 #     #     print(project)
 #     # print(f"get_projects: {query}")
-#     # projects: schemas.Project
+#     # projects: project_schemasProject
 
 
 #     # print(f"get_projects: {type(projects)}")
@@ -46,7 +46,7 @@ def get_all_company_projects(company_id: int, db: Session = Depends(get_db)):
 
 
 def update_project_name(
-    projects: list[schemas.Project], old_project_name: str, new_project_name: str
+    projects: list[project_schemas.Project], old_project_name: str, new_project_name: str
 ):
     print(projects)
     # list_projects_name: list[str] = []
