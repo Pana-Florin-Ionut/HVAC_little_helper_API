@@ -29,17 +29,25 @@ def get_companies(
 ):
     match user.role:
         case "application_administrator":
-            return db.scalars(
-                select(table_models_required.Companies)
-                .where(
-                    table_models_required.Companies.company_name.icontains(company_name)
-                )
-                .where(
-                    table_models_required.Companies.company_key.icontains(company_key)
-                )
-                .limit(limit)
-                .offset(skip)
-            ).all()
+            query = select(table_models_required.Companies)
+            print(query)
+
+            # if company_name:
+            #     query = query.where(
+            #         table_models_required.Companies.company_name.ilike(
+            #             f"%{company_name}%"
+            #         )
+            #     )
+            # if company_key:
+            #     query = query.where(
+            #         table_models_required.Companies.company_key.ilike(
+            #             f"%{company_key}%"
+            #         )
+            #     )
+            # query = query.limit(limit).offset(skip)
+            # print(query)
+            response = db.scalars(query).all()
+            return response
         case "test_user":
             return db.scalars(
                 select(table_models_required.Companies)

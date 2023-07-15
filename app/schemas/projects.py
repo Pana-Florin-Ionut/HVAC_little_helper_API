@@ -54,3 +54,14 @@ class ProjectOut(BaseModel):
 
     class Config:
         orm_mode = True
+
+class ProjectSingleOut(BaseModel):
+    id: int
+    company_id: int
+    project_name: str
+    project_key: str
+    created_by: int
+    created: datetime
+
+    class Config:
+        orm_mode = True

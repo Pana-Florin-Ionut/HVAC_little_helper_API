@@ -28,10 +28,8 @@ async def offers(
     offer_key: str = "",
     search="",
     created_by: int = 0,
-    sort="",
     limit: int = 100,
     skip: int = 0,
-    filter="",
 ):
     print(f"User: {user.role}")
     match user.role:
@@ -54,7 +52,7 @@ async def offers(
                     query = query.where(
                         table_models_required.Offers.created_by == created_by
                     )
-                # print(query)
+                query = query.limit(limit).offset(skip)
                 return db.scalars(query).all()
 
             except Exception as e:
@@ -64,17 +62,38 @@ async def offers(
                     detail=f"Bad request",
                 )
         case "admin":
-            offers = (
-                db.query(table_models_required.Offers)
-                .limit(limit)
-                .offset(skip)
-                .where(table_models_required.Offers.company_id == user.company_id)
-                .where(table_models_required.Offers.offer_name.contains(search))
-                .where(table_models_required.Offers.created_by == created_by)
-                .filter(filter)
-                .sort(sort)
-                .all()
+            query = select(table_models_required.Offers).where(
+                table_models_required.Offers.company_id == user.company_id
             )
+            if company_key != "":
+                raise HTTPException(
+                    status.HTTP_403_FORBIDDEN,
+                    details=f"You don't have the permission to see other companies offers",
+                )
+            if offer_key != "":
+                query = query.where(table_models_required.Offers.offer_key == offer_key)
+            if search != "":
+                query = query.where(
+                    table_models_required.Offers.offer_name.contains(search)
+                )
+            if created_by > 0:
+                query = query.where(
+                    table_models_required.Offers.created_by == created_by
+                )
+
+            # offers = (
+            #     db.query(table_models_required.Offers)
+            #     .limit(limit)
+            #     .offset(skip)
+            #     .where(table_models_required.Offers.company_id == user.company_id)
+            #     .where(table_models_required.Offers.offer_name.contains(search))
+            #     .where(table_models_required.Offers.created_by == created_by)
+            #     .filter(filter)
+            #     .sort(sort)
+            #     .all()
+            # )
+            offers = db.scalars(query).all()
+
             return offers
         case "custom":
             if user_permissions.can_view_offer(user.id, db):
@@ -89,7 +108,6 @@ async def offers(
                         .filter(filter)
                         .limit(limit)
                         .offset(skip)
-                        .sort(sort)
                         .all()
                     )
                     return offers

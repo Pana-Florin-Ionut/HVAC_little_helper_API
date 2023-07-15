@@ -51,13 +51,6 @@ class Companies(Base):
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
-    # broke the tests. circular importing error
-    # created_by = Column(
-    #     Integer,
-    #     ForeignKey("users.id", ondelete="CASCADE", deferrable=True),
-    #     nullable=True,
-    # )
-    # # owner = relationship("Users")
 
 
 class Projects(Base):
@@ -78,7 +71,7 @@ class Projects(Base):
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
-    created_by = Column(Integer, ForeignKey("users.id", ondelete=""), nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     UniqueConstraint(company_id, project_name, name="unique_project_name_for_company")
     UniqueConstraint(company_id, project_key, name="unique_project_key_for_company")
     owner = relationship("Users")
@@ -96,16 +89,19 @@ class Offers(Base):
     project_id = Column(
         Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
     )
-    offer_name = Column(String, nullable=False, unique=True)
-    offer_key = Column(String, nullable=False, unique=True)
+    offer_name = Column(String, nullable=False)
+    offer_key = Column(String, nullable=False)
     is_finalized = Column(Boolean, server_default="TRUE", nullable=True, default=False)
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
-    created_by = Column(
-        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    UniqueConstraint(offer_key, project_id, name="unique_offer_key_for_project")
+    UniqueConstraint(offer_name, project_id, name="unique_offer_name_for_project")
     owner = relationship("Users")
+    company = relationship("Companies", foreign_keys="Offers.company_id")
+    client = relationship("Companies", foreign_keys="Offers.client_id")
+    project = relationship("Projects", foreign_keys="Offers.project_id")
 
 
 class Permissions(Base):
