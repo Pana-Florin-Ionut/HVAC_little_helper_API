@@ -62,66 +62,117 @@ async def offers(
                     detail=f"Bad request",
                 )
         case "admin":
-            query = select(table_models_required.Offers).where(
-                table_models_required.Offers.company_id == user.company_id
-            )
-            if company_key != "":
+            try:
+                query = select(table_models_required.Offers).where(
+                    table_models_required.Offers.company_id == user.company_id
+                )
+                if company_key != "":
+                    query = query.where(
+                        table_models_required.Offers.company_id == company_key
+                    )
+                if offer_key != "":
+                    query = query.where(
+                        table_models_required.Offers.offer_key == offer_key
+                    )
+                if search != "":
+                    query = query.where(
+                        table_models_required.Offers.offer_name.contains(search)
+                    )
+                if created_by > 0:
+                    query = query.where(
+                        table_models_required.Offers.created_by == created_by
+                    )
+                query = query.limit(limit).offset(skip)
+                return db.scalars(query).all()
+
+            except Exception as e:
+                print(e)
                 raise HTTPException(
-                    status.HTTP_403_FORBIDDEN,
-                    details=f"You don't have the permission to see other companies offers",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Bad request",
                 )
-            if offer_key != "":
-                query = query.where(table_models_required.Offers.offer_key == offer_key)
-            if search != "":
-                query = query.where(
-                    table_models_required.Offers.offer_name.contains(search)
-                )
-            if created_by > 0:
-                query = query.where(
-                    table_models_required.Offers.created_by == created_by
-                )
-
-            # offers = (
-            #     db.query(table_models_required.Offers)
-            #     .limit(limit)
-            #     .offset(skip)
-            #     .where(table_models_required.Offers.company_id == user.company_id)
-            #     .where(table_models_required.Offers.offer_name.contains(search))
-            #     .where(table_models_required.Offers.created_by == created_by)
-            #     .filter(filter)
-            #     .sort(sort)
-            #     .all()
-            # )
-            offers = db.scalars(query).all()
-
-            return offers
         case "custom":
-            if user_permissions.can_view_offer(user.id, db):
-                try:
-                    offers = (
-                        db.query(table_models_required.Offers)
-                        .where(
+            permissions = user_permissions.can_view_offer(user.id, db)
+            match permissions:
+                case True:
+                    try:
+                        query = select(table_models_required.Offers).where(
                             table_models_required.Offers.company_id == user.company_id
                         )
-                        .where(table_models_required.Offers.offer_name.contains(search))
-                        .where(table_models_required.Offers.created_by == created_by)
-                        .filter(filter)
-                        .limit(limit)
-                        .offset(skip)
-                        .all()
-                    )
-                    return offers
-                except Exception as e:
-                    print(e)
+                        if company_key != "":
+                            query = query.where(
+                                table_models_required.Offers.company_id == company_key
+                            )
+                        if offer_key != "":
+                            query = query.where(
+                                table_models_required.Offers.offer_key == offer_key
+                            )
+                        if search != "":
+                            query = query.where(
+                                table_models_required.Offers.offer_name.contains(search)
+                            )
+                        if created_by > 0:
+                            query = query.where(
+                                table_models_required.Offers.created_by == created_by
+                            )
+                        query = query.limit(limit).offset(skip)
+                        response = db.scalars(query).all()
+                        return response
+                    except Exception as e:
+                        print(e)
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Bad request",
+                        )
+                case _:
                     raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Bad request",
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Not authorized to perform this action",
                     )
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Not authorized to perform this action",
+
+
+@router.post(
+    "/admin",
+    status_code=status.HTTP_201_CREATED,
+    response_model=offer_schemas.OffersRetrieve,
+)
+def create_offer_admin(
+    offer: offer_schemas.OffersCreate,
+    db: Session = Depends(get_db),
+    user: int = Depends(oauth2.get_current_user),
+):
+    match user.role:
+        case "application_administrator":
+            try:
+                new_offer = table_models_required.Offers(
+                    created_by=user.id, **offer.dict()
                 )
+                db.add(new_offer)
+                db.commit()
+                db.refresh(new_offer)
+                # Create offer table after is ok
+                create_offer_table.create_offer_table(
+                    offer_name=offer.offer_name, user=user, db=db
+                )
+                return new_offer
+
+            except sqlalchemy.exc.IntegrityError as e:
+                if e.orig.pgcode == "23505":
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="An offer with this name already exists",
+                    )
+            except Exception as e:
+                print(e)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Bad request",
+                )
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authorized to perform this admin action",
+            )
 
 
 @router.post(

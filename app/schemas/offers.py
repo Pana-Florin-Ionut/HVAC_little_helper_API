@@ -53,7 +53,6 @@ class OffersCreate(BaseModel):
     project_id: int
     offer_name: str
     offer_key: str
-    is_finalized: bool = False
 
     class Config:
         orm_mode = True
