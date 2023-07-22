@@ -47,12 +47,14 @@ class OffersRetrieve(BaseModel):
         orm_mode = True
 
 
-class OffersCreate(BaseModel):
+class OffersCreateUser(BaseModel):
     client_id: int | None = None
-    company_id: int
     project_id: int
     offer_name: str
     offer_key: str
 
     class Config:
         orm_mode = True
+
+class OffersCreateAdmin(OffersCreateUser):
+    company_id: int

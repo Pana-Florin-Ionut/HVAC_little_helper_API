@@ -137,9 +137,9 @@ async def offers(
     response_model=offer_schemas.OffersRetrieve,
 )
 def create_offer_admin(
-    offer: offer_schemas.OffersCreate,
+    offer: offer_schemas.OffersCreateAdmin,
     db: Session = Depends(get_db),
-    user: int = Depends(oauth2.get_current_user),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     match user.role:
         case "application_administrator":
@@ -150,17 +150,14 @@ def create_offer_admin(
                 db.add(new_offer)
                 db.commit()
                 db.refresh(new_offer)
-                # Create offer table after is ok
-                create_offer_table.create_offer_table(
-                    offer_name=offer.offer_name, user=user, db=db
-                )
+
                 return new_offer
 
             except sqlalchemy.exc.IntegrityError as e:
                 if e.orig.pgcode == "23505":
                     raise HTTPException(
                         status_code=status.HTTP_409_CONFLICT,
-                        detail="An offer with this name already exists",
+                        detail="An offer with this name already exists of key exists",
                     )
             except Exception as e:
                 print(e)
@@ -181,21 +178,43 @@ def create_offer_admin(
     response_model=offer_schemas.OffersRetrieve,
 )
 def create_offer(
-    offer: offer_schemas.OffersCreate,
+    offer: offer_schemas.OffersCreateUser,
     db: Session = Depends(get_db),
-    user: int = Depends(oauth2.get_current_user),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
+    match user.role:
+        case "admin" | "user":
+            try:
+                new_offer = table_models_required.Offers(
+                    created_by=user.id, company_id=user.company_id, **offer.dict()
+                )
+                db.add(new_offer)
+                db.commit()
+                db.refresh(new_offer)
+
+                return new_offer
+
+            except sqlalchemy.exc.IntegrityError as e:
+                if e.orig.pgcode == "23505":
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="An offer with this name already exists",
+                    )
+            except Exception as e:
+                print(e)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Bad request",
+                )
     # print(offer)
     if user_permissions.can_create_offer(user.id, db):
         try:
-            new_offer = table_models_required.Offers(created_by=user.id, **offer.dict())
+            new_offer = table_models_required.Offers(
+                created_by=user.id, company_id=user.company_id, **offer.dict()
+            )
             db.add(new_offer)
             db.commit()
             db.refresh(new_offer)
-            # Create offer table after is ok
-            create_offer_table.create_offer_table(
-                offer_name=offer.offer_name, user=user, db=db
-            )
 
         except sqlalchemy.exc.IntegrityError as e:
             if e.orig.pgcode == "23505":
