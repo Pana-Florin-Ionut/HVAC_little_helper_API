@@ -59,3 +59,10 @@ class OffersCreateUser(BaseModel):
 
 class OffersCreateAdmin(OffersCreateUser):
     company_key: str
+
+class OffersUpdate(BaseModel):
+    offer_name: str
+    is_finalized: bool
+
+    class Config:
+        orm_mode = True

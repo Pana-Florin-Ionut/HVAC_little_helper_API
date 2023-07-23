@@ -2,7 +2,11 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 
-from app.routers.utils import get_company_projects, get_project_key, match_project_company
+from app.routers.utils import (
+    get_company_projects,
+    get_project_key,
+    match_project_company,
+)
 from . import offer as create_offer_table
 import sqlalchemy
 from sqlalchemy import select, update, delete, insert
@@ -149,7 +153,6 @@ def create_offer_admin(
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
-    
     try:
         offer.project_key = get_project_key(offer.project_id, db)
     except Exception as e:
@@ -273,10 +276,101 @@ def create_offer(
             detail="Not authorized to perform this action",
         )
 
-#create delete offer
-@router.delete("/{company_key}/{project_key}/{offer_key}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_offer(
+
+# create delete offer
+@router.delete(
+    "/{company_key}/{project_key}/{offer_key}", status_code=status.HTTP_204_NO_CONTENT
+)
+def delete_offer_keys(
     offer_key: str,
+    company_key: str,
+    project_key: str,
     db: Session = Depends(get_db),
-    user: users_schemas.UserOut = Depends(oauth2.get_current_user)):
-    pass
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    match user.role:
+        case "application_administrator":
+            try:
+                query = (
+                    select(table_models_required.Offers)
+                    .where(table_models_required.Offers.offer_key == offer_key)
+                    .filter(table_models_required.Offers.company_key == company_key)
+                    .filter(table_models_required.Offers.project_key == project_key)
+                )
+                db.delete(db.scalars(query).first())
+                db.commit()
+
+            except Exception as e:
+                print(e)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Bad request",
+                )
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authorized to perform this action",
+            )
+
+
+@router.delete("/{offer_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_offer_id(
+    offer_id: int, db: Session = Depends(get_db), user=Depends(oauth2.get_current_user)
+):
+    match user.role:
+        case "application_administrator":
+            try:
+                query = select(table_models_required.Offers).where(
+                    table_models_required.Offers.id == offer_id
+                )
+                db.delete(db.scalars(query).first())
+                db.commit()
+
+            except Exception as e:
+                print(e)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Bad request",
+                )
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authorized to perform this action",
+            )
+
+
+@router.put("/{offer_id}", response_model=offer_schemas.OffersRetrieve)
+def update_offer(
+    offer_id: int,
+    offer: offer_schemas.OffersUpdate,
+    db: Session = Depends(get_db),
+    user=Depends(oauth2.get_current_user),
+):
+    match user.role:
+        case "application_administrator":
+            try:
+                query = (
+                    update(table_models_required.Offers).where(
+                        table_models_required.Offers.id == offer_id
+                    )
+                ).values(**offer.dict())
+                db.execute(query)
+                db.commit()
+                offer = (
+                    db.query(table_models_required.Offers)
+                    .filter(table_models_required.Offers.id == offer_id)
+                    .first()
+                )
+                return offer
+
+            except Exception as e:
+                print(e)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Bad request",
+                )
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authorized to perform this action",
+            )

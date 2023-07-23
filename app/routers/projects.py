@@ -189,7 +189,6 @@ def create_project(
                 db.refresh(db_project)
                 return db_project
             except sqlalchemy.exc.IntegrityError as e:
-                
                 # e.orig.pgcode == "23505" is the error code for unique constraint violation
                 if e.orig.pgcode == "23505":
                     raise HTTPException(
@@ -205,15 +204,15 @@ def create_project(
             if user_permissions.can_create_project(user.id, db):
                 try:
                     db_project: dict = table_models_required.Projects(
-                        created_by=user.id, company_key=user.company_key, **project.dict()
+                        created_by=user.id,
+                        company_key=user.company_key,
+                        **project.dict(),
                     )
                     db.add(db_project)
                     db.commit()
                     db.refresh(db_project)
                     return db_project
                 except sqlalchemy.exc.IntegrityError as e:
-                    
-                    
                     # e.orig.pgcode == "23505" is the error code for unique constraint violation
                     if e.orig.pgcode == "23505":
                         raise HTTPException(
@@ -257,7 +256,6 @@ def create_project(
                 )
                 return project
             except sqlalchemy.exc.IntegrityError as e:
-                
                 # print(e.orig.pgcode)
                 if e.orig.pgcode == "23505":
                     # e.orig.pgcode == "23505" is the error code for unique constraint violation
@@ -314,11 +312,7 @@ def update_project(
                 query = (
                     update(table_models_required.Projects)
                     .where(table_models_required.Projects.project_key == project_key)
-                    .filter(
-                        table_models_required.Projects.company.has(
-                            company_key=company_key
-                        )
-                    )
+                    .filter(table_models_required.Projects.company_key == company_key)
                     .values(**project.dict())
                 )
                 db.execute(query)
@@ -327,7 +321,7 @@ def update_project(
                 return project
             except sqlalchemy.exc.IntegrityError as e:
                 # e.orig.pgcode == "23505" is the error code for unique constraint violation
-                
+
                 if e.orig.pgcode == "23505":
                     print("origin")
                     raise HTTPException(
@@ -385,7 +379,9 @@ def delete_project(
             try:
                 query = (
                     delete(table_models_required.Projects)
-                    .where(table_models_required.Projects.company_key == user.company_key)
+                    .where(
+                        table_models_required.Projects.company_key == user.company_key
+                    )
                     .where(table_models_required.Projects.project_key == project_key)
                 )
                 db.execute(query)
