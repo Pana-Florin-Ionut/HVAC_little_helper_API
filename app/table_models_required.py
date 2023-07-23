@@ -28,9 +28,7 @@ class Users(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, nullable=False, unique=True)
     password = Column(String, nullable=False)
-    company_id = Column(
-        Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=True
-    )
+    company_key = Column(String, ForeignKey("companies.company_key"), nullable=True)
     role = Column(String, nullable=True)
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
@@ -61,19 +59,15 @@ class Projects(Base):
         primary_key=True,
         index=True,
     )
-    company_id = Column(
-        Integer,
-        ForeignKey("companies.id", ondelete="CASCADE"),
-        nullable=False,
-    )
+    company_key = Column(String, ForeignKey("companies.company_key"), nullable=False)
     project_name = Column(String, nullable=False)
     project_key = Column(String, nullable=False)
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-    UniqueConstraint(company_id, project_name, name="unique_project_name_for_company")
-    UniqueConstraint(company_id, project_key, name="unique_project_key_for_company")
+    UniqueConstraint(company_key, project_name, name="unique_project_name_for_company")
+    UniqueConstraint(company_key, project_key, name="unique_project_key_for_company")
     owner = relationship("Users")
     company = relationship("Companies")
 
@@ -82,13 +76,12 @@ class Offers(Base):
     __tablename__ = "offers"
     # server_default=offers_id_seq.next_value(),
     id = Column(Integer, primary_key=True, index=True)
-    client_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
-    company_id = Column(
-        Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
+    client_key = Column(String, ForeignKey("companies.company_key"), nullable=False)
+    company_key = Column(
+        String, ForeignKey("companies.company_key", ondelete="CASCADE"), nullable=False
     )
-    project_id = Column(
-        Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
-    )
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    project_key = Column(String, nullable=False)
     offer_name = Column(String, nullable=False)
     offer_key = Column(String, nullable=False)
     is_finalized = Column(Boolean, server_default="TRUE", nullable=True, default=False)
@@ -99,8 +92,8 @@ class Offers(Base):
     UniqueConstraint(offer_key, project_id, name="unique_offer_key_for_project")
     UniqueConstraint(offer_name, project_id, name="unique_offer_name_for_project")
     owner = relationship("Users")
-    company = relationship("Companies", foreign_keys="Offers.company_id")
-    client = relationship("Companies", foreign_keys="Offers.client_id")
+    company = relationship("Companies", foreign_keys="Offers.company_key")
+    client = relationship("Companies", foreign_keys="Offers.client_key")
     project = relationship("Projects", foreign_keys="Offers.project_id")
 
 

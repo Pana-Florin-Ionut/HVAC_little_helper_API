@@ -16,7 +16,7 @@ class User(BaseModel):
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
-    company_id: int | None = None
+    company_key: str | None = None
 
     class Config:
         orm_mode = True
@@ -25,7 +25,8 @@ class UserCreate(BaseModel):
 class UserOut(BaseModel):
     id: int
     email: EmailStr
-    company_id: int | None = None
+    company_key: str | None = None
+    company_key: str | None = None
     role: str | None = None
     created: datetime
 

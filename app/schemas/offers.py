@@ -15,9 +15,9 @@ class Offer(BaseModel):
 
 class Offers(BaseModel):
     id: int | None = None
-    client_id: int | None = None
-    company_id: int
-    project_id: int
+    client_key: str | None = None
+    company_key: str
+    project_key: str
     offer_name: str
     offer_key: str
     is_finalized: bool
@@ -30,9 +30,9 @@ class Offers(BaseModel):
 
 class OffersRetrieve(BaseModel):
     id: int
-    client_id: int | None = None
-    company_id: int
-    project_id: int
+    client_key: str | None = None
+    company_key: str
+    project_key: str
     offer_name: str
     offer_key: str
     is_finalized: bool
@@ -48,8 +48,9 @@ class OffersRetrieve(BaseModel):
 
 
 class OffersCreateUser(BaseModel):
-    client_id: int | None = None
+    client_key: str | None = None
     project_id: int
+    project_key: str | None = None
     offer_name: str
     offer_key: str
 
@@ -57,4 +58,4 @@ class OffersCreateUser(BaseModel):
         orm_mode = True
 
 class OffersCreateAdmin(OffersCreateUser):
-    company_id: int
+    company_key: str

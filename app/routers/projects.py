@@ -9,7 +9,7 @@ from ..database import get_db
 from .. import oauth2
 from sqlalchemy import update
 from .utils import (
-    get_project_details_Co_id,
+    get_project_details_Co_key,
     project_exists_key,
     get_project_details_Co_key,
 )
@@ -32,7 +32,6 @@ def get_projects(
     user: schema_users.UserOut = Depends(oauth2.get_current_user),
     db: Session = Depends(get_db),
     company_key: Optional[str] = None,
-    company_id: Optional[int] = None,
     project_key: Optional[int] = None,
     project_name: Optional[str] = None,
     search: Optional[str] = None,
@@ -44,19 +43,13 @@ def get_projects(
             try:
                 query = select(table_models_required.Projects)
                 # print(f"QUERY: {query}")
-                if company_id is not None:
+                if company_key is not None:
                     query = query.where(
-                        table_models_required.Projects.company_id == company_id
+                        table_models_required.Projects.company_key == company_key
                     )
                 if search is not None:
                     query = query.where(
                         table_models_required.Projects.project_name.icontains(search)
-                    )
-                if company_key is not None:
-                    query = query.where(
-                        table_models_required.Projects.project_name.icontains(
-                            company_key
-                        )
                     )
                 if project_key is not None:
                     query = query.where(
@@ -78,20 +71,15 @@ def get_projects(
         case "test_user":
             try:
                 query = select(table_models_required.Projects)
-                if company_id is not None:
+                if company_key is not None:
                     query = query.where(
-                        table_models_required.Projects.company_id == company_id
+                        table_models_required.Projects.company_key == company_key
                     )
                 if search is not None:
                     query = query.where(
                         table_models_required.Projects.project_name.icontains(search)
                     )
-                if company_key is not None:
-                    query = query.where(
-                        table_models_required.Projects.project_name.icontains(
-                            company_key
-                        )
-                    )
+
                 query = query.limit(limit).offset(offset)
                 # print(query)
                 projects = db.scalars(query).all()
@@ -106,7 +94,7 @@ def get_projects(
         case "admin" | "manager" | "user":
             try:
                 query = select(table_models_required.Projects).where(
-                    table_models_required.Projects.company_id == user.company_id
+                    table_models_required.Projects.company_key == user.company_key
                 )
                 if search is not None:
                     query = query.where(
@@ -137,7 +125,7 @@ def get_projects(
             if user_permissions.can_view_project(user.id, db):
                 try:
                     query = select(table_models_required.Projects).where(
-                        table_models_required.Projects.company_id == user.company_id
+                        table_models_required.Projects.company_key == user.company_key
                     )
                     if search is not None:
                         query = query.where(
@@ -194,13 +182,14 @@ def create_project(
         case "admin" | "manager" | "user":
             try:
                 db_project: dict = table_models_required.Projects(
-                    created_by=user.id, company_id=user.company_id, **project.dict()
+                    created_by=user.id, company_key=user.company_key, **project.dict()
                 )
                 db.add(db_project)
                 db.commit()
                 db.refresh(db_project)
                 return db_project
             except sqlalchemy.exc.IntegrityError as e:
+                
                 # e.orig.pgcode == "23505" is the error code for unique constraint violation
                 if e.orig.pgcode == "23505":
                     raise HTTPException(
@@ -216,13 +205,15 @@ def create_project(
             if user_permissions.can_create_project(user.id, db):
                 try:
                     db_project: dict = table_models_required.Projects(
-                        created_by=user.id, company_id=user.company_id, **project.dict()
+                        created_by=user.id, company_key=user.company_key, **project.dict()
                     )
                     db.add(db_project)
                     db.commit()
                     db.refresh(db_project)
                     return db_project
                 except sqlalchemy.exc.IntegrityError as e:
+                    
+                    
                     # e.orig.pgcode == "23505" is the error code for unique constraint violation
                     if e.orig.pgcode == "23505":
                         raise HTTPException(
@@ -261,11 +252,12 @@ def create_project(
                 db.add(db_project)
                 db.commit()
                 db.refresh(db_project)
-                project = get_project_details_Co_id(
-                    db_project.project_key, db_project.company_id, db
+                project = get_project_details_Co_key(
+                    db_project.project_key, db_project.company_key, db
                 )
                 return project
             except sqlalchemy.exc.IntegrityError as e:
+                
                 # print(e.orig.pgcode)
                 if e.orig.pgcode == "23505":
                     # e.orig.pgcode == "23505" is the error code for unique constraint violation
@@ -277,7 +269,7 @@ def create_project(
                     # 23503 pgcode is psycopg2.errors.ForeignKeyViolation
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
-                        detail=f"Company with id {project.company_id} does not exist",
+                        detail=f"Company with id {project.company_key} does not exist",
                     )
                 else:
                     raise HTTPException(
@@ -335,6 +327,7 @@ def update_project(
                 return project
             except sqlalchemy.exc.IntegrityError as e:
                 # e.orig.pgcode == "23505" is the error code for unique constraint violation
+                
                 if e.orig.pgcode == "23505":
                     print("origin")
                     raise HTTPException(
@@ -392,7 +385,7 @@ def delete_project(
             try:
                 query = (
                     delete(table_models_required.Projects)
-                    .where(table_models_required.Projects.company_id == user.company_id)
+                    .where(table_models_required.Projects.company_key == user.company_key)
                     .where(table_models_required.Projects.project_key == project_key)
                 )
                 db.execute(query)

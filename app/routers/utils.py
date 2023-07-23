@@ -74,13 +74,13 @@ def get_project_details_Co_key(
     return db.scalars(query).first()
 
 
-def get_project_details_Co_id(
-    project_key: str, company_id: int, db: Session = Depends(get_db)
+def get_project_details_Co_key(
+    project_key: str, company_key: str, db: Session = Depends(get_db)
 ):
     query = (
         select(table_models_required.Projects)
         .where(table_models_required.Projects.project_key == project_key)
-        .where(table_models_required.Projects.company_id == company_id)
+        .where(table_models_required.Projects.company_key == company_key)
     )
     return db.scalars(query).first()
 
@@ -89,7 +89,9 @@ def get_company_projects(company_id: int, db: Session = Depends(get_db)):
     query = select(table_models_required.Projects).where(
         table_models_required.Projects.company_id == company_id
     )
-    return db.execute(query).all()
+    results = db.execute(query).all()
+    print(results)
+    return results
 
 
 def get_company_details(company_id: int, db: Session = Depends(get_db)):
@@ -97,3 +99,23 @@ def get_company_details(company_id: int, db: Session = Depends(get_db)):
         table_models_required.Companies.id == company_id
     )
     return db.scalars(query).first()
+
+
+def get_project_key(project_id: int, db: Session = Depends(get_db)):
+    query = select(table_models_required.Projects.project_key).where(
+        table_models_required.Projects.id == project_id
+    )
+    return db.scalar(query)
+
+
+def match_project_company(
+    project_id: int, company_key: str, db: Session = Depends(get_db)
+) -> bool:
+    is_match = db.query(
+        exists()
+        .where(table_models_required.Projects.company_key == company_key)
+        .where(table_models_required.Projects.id == project_id)
+    ).scalar()
+    # print(is_present)
+
+    return is_match

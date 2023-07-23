@@ -5,15 +5,9 @@ from pydantic import BaseModel, EmailStr
 from .companies import CompanyOut
 from .users import UserOut
 
-
-
-
-
-
-
 class Project(BaseModel):
     id: int
-    company_id: int
+    company_key: str
     project_name: str
     project_key: str
     created_by: UserOut
@@ -22,7 +16,7 @@ class Project(BaseModel):
         orm_mode = True
 
 class ProjectCreateAdmin(BaseModel):
-    company_id: int
+    company_key: str
     project_name: str
     project_key: str
 
@@ -44,7 +38,7 @@ class ProjectCreateUser(BaseModel):
 
 class ProjectOut(BaseModel):
     id: int
-    company_id: int
+    company_key: str
     project_name: str
     project_key: str
     created_by: int
@@ -57,7 +51,7 @@ class ProjectOut(BaseModel):
 
 class ProjectSingleOut(BaseModel):
     id: int
-    company_id: int
+    company_key: str
     project_name: str
     project_key: str
     created_by: int

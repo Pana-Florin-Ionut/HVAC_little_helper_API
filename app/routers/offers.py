@@ -1,6 +1,8 @@
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
+
+from app.routers.utils import get_company_projects, get_project_key, match_project_company
 from . import offer as create_offer_table
 import sqlalchemy
 from sqlalchemy import select, update, delete, insert
@@ -25,6 +27,7 @@ async def offers(
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
     company_key: str = "",
+    project_key: str = "",
     offer_key: str = "",
     search="",
     created_by: int = 0,
@@ -38,7 +41,11 @@ async def offers(
                 query = select(table_models_required.Offers)
                 if company_key != "":
                     query = query.where(
-                        table_models_required.Offers.company_id == company_key
+                        table_models_required.Offers.company_key == company_key
+                    )
+                if project_key != "":
+                    query = query.where(
+                        table_models_required.Offers.project_key == project_key
                     )
                 if offer_key != "":
                     query = query.where(
@@ -53,6 +60,7 @@ async def offers(
                         table_models_required.Offers.created_by == created_by
                     )
                 query = query.limit(limit).offset(skip)
+                # print(f"Query: {query}")
                 return db.scalars(query).all()
 
             except Exception as e:
@@ -64,11 +72,11 @@ async def offers(
         case "admin":
             try:
                 query = select(table_models_required.Offers).where(
-                    table_models_required.Offers.company_id == user.company_id
+                    table_models_required.Offers.company_key == user.company_key
                 )
                 if company_key != "":
                     query = query.where(
-                        table_models_required.Offers.company_id == company_key
+                        table_models_required.Offers.company_key == company_key
                     )
                 if offer_key != "":
                     query = query.where(
@@ -97,11 +105,11 @@ async def offers(
                 case True:
                     try:
                         query = select(table_models_required.Offers).where(
-                            table_models_required.Offers.company_id == user.company_id
+                            table_models_required.Offers.company_key == user.company_key
                         )
                         if company_key != "":
                             query = query.where(
-                                table_models_required.Offers.company_id == company_key
+                                table_models_required.Offers.company_key == company_key
                             )
                         if offer_key != "":
                             query = query.where(
@@ -141,6 +149,20 @@ def create_offer_admin(
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
+    
+    try:
+        offer.project_key = get_project_key(offer.project_id, db)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Project with the key {offer.project_key} does not exist",
+        )
+    print(offer)
+    if not match_project_company(offer.project_id, offer.company_key, db):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Project and company do not match",
+        )
     match user.role:
         case "application_administrator":
             try:
@@ -154,10 +176,16 @@ def create_offer_admin(
                 return new_offer
 
             except sqlalchemy.exc.IntegrityError as e:
+                print(e)
                 if e.orig.pgcode == "23505":
                     raise HTTPException(
                         status_code=status.HTTP_409_CONFLICT,
                         detail="An offer with this name already exists of key exists",
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Bad request",
                     )
             except Exception as e:
                 print(e)
@@ -182,25 +210,34 @@ def create_offer(
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
+    try:
+        offer.project_key = get_project_key(offer.project_key, db)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Project with the key {offer.project_key} does not exist",
+        )
+
     match user.role:
         case "admin" | "user":
             try:
                 new_offer = table_models_required.Offers(
-                    created_by=user.id, company_id=user.company_id, **offer.dict()
+                    created_by=user.id, company_key=user.company_key, **offer.dict()
                 )
                 db.add(new_offer)
                 db.commit()
                 db.refresh(new_offer)
-
                 return new_offer
 
             except sqlalchemy.exc.IntegrityError as e:
+                db.rollback()
                 if e.orig.pgcode == "23505":
                     raise HTTPException(
                         status_code=status.HTTP_409_CONFLICT,
                         detail="An offer with this name already exists",
                     )
             except Exception as e:
+                db.rollback()
                 print(e)
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -210,7 +247,7 @@ def create_offer(
     if user_permissions.can_create_offer(user.id, db):
         try:
             new_offer = table_models_required.Offers(
-                created_by=user.id, company_id=user.company_id, **offer.dict()
+                created_by=user.id, company_key=user.company_key, **offer.dict()
             )
             db.add(new_offer)
             db.commit()
@@ -235,3 +272,11 @@ def create_offer(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authorized to perform this action",
         )
+
+#create delete offer
+@router.delete("/{company_key}/{project_key}/{offer_key}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_offer(
+    offer_key: str,
+    db: Session = Depends(get_db),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user)):
+    pass
