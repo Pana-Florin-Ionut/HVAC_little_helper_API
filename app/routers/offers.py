@@ -6,6 +6,7 @@ from app.routers.utils import (
     get_company_projects,
     get_project_key,
     match_project_company,
+    match_user_company,
 )
 from . import offer as create_offer_table
 import sqlalchemy
@@ -344,7 +345,7 @@ def update_offer(
     offer_id: int,
     offer: offer_schemas.OffersUpdate,
     db: Session = Depends(get_db),
-    user=Depends(oauth2.get_current_user),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     match user.role:
         case "application_administrator":
@@ -363,6 +364,32 @@ def update_offer(
                 )
                 return offer
 
+            except Exception as e:
+                print(e)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Bad request",
+                )
+        case "admin":
+            if not match_user_company(user.company_key, offer_id, db):
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="This offer is not from your company",
+                    )
+            try:                
+                query = (
+                    update(table_models_required.Offers)
+                    .where(table_models_required.Offers.id == offer_id)
+                    .values(**offer.dict())
+                )
+                db.execute(query)
+                db.commit()
+                offer = (
+                    db.query(table_models_required.Offers)
+                    .filter(table_models_required.Offers.id == offer_id)
+                    .first()
+                )
+                return offer
             except Exception as e:
                 print(e)
                 raise HTTPException(

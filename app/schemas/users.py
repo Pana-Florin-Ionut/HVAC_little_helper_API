@@ -26,7 +26,6 @@ class UserOut(BaseModel):
     id: int
     email: EmailStr
     company_key: str | None = None
-    company_key: str | None = None
     role: str | None = None
     created: datetime
 

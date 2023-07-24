@@ -119,3 +119,14 @@ def match_project_company(
     # print(is_present)
 
     return is_match
+
+
+def match_user_company(
+    user_company_key: str, offer_id: int, db: Session = Depends(get_db)
+) -> bool:
+    is_match = db.query(
+        exists()
+        .where(table_models_required.Offers.id == offer_id)
+        .where(table_models_required.Offers.company_key == user_company_key)
+    ).scalar()
+    return is_match
