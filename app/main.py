@@ -11,7 +11,7 @@ from .schemas import offers as offers_schemas
 from .schemas import users as users_schemas
 
 
-from .routers import companies, offer, projects, users, offers, auth
+from .routers import companies, offer_body, projects, users, offers, auth
 from . import table_models_required
 
 
@@ -30,7 +30,7 @@ app = FastAPI()
 app.include_router(projects.router)
 app.include_router(companies.router)
 app.include_router(users.router)
-app.include_router(offer.router)
+app.include_router(offer_body.router)
 app.include_router(offers.router)
 app.include_router(auth.router)
 

@@ -8,7 +8,7 @@ from app.routers.utils import (
     match_project_company,
     match_user_company,
 )
-from . import offer as create_offer_table
+from . import offer_body as create_offer_table
 import sqlalchemy
 from sqlalchemy import select, update, delete, insert
 from .. import oauth2, table_models_required

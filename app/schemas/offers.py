@@ -12,6 +12,9 @@ from .products import Product
 class Offer(BaseModel):
     products: list[Product] | None = None
 
+    class Config:
+        orm_mode = True
+
 
 class Offers(BaseModel):
     id: int | None = None

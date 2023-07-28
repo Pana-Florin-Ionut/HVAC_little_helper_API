@@ -1,8 +1,10 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
+import sqlalchemy as salch
 from ..utils import get_offer_details
-import sqlalchemy
+from sqlalchemy import Subquery, select, update, insert, delete, MappingResult
+from ..table_models_required import Offers, OffersBody
 from .. import oauth2, table_models_required, table_models_optional, tables
 from ..schemas import offers as offers_schemas
 from ..schemas import products as products_schemas
@@ -14,11 +16,33 @@ from ..database import get_db
 import logging
 from .. import user_permissions
 
-router = APIRouter(prefix="/offer/{offer_name}", tags=["Offer Body"])
+router = APIRouter(prefix="/offer", tags=["Offer Body"])
 
 
-def create_new_offer_table(offer_name):
-    table_models_optional.create_offer_table(engine, offer_name)
+@router.get(
+    "/{company_key}/{project_key}/{offer_key}",
+    response_model=List[products_schemas.Product],
+    status_code=status.HTTP_200_OK,
+)
+def get_offer_key(
+    company_key: str,
+    project_key: str,
+    offer_key: str,
+    db: Session = Depends(get_db),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    match user.role:
+        case "application_administrator":
+            subquery = (
+                select(Offers.id)
+                .where(Offers.company_key == company_key)
+                .where(Offers.project_key == project_key)
+                .where(Offers.offer_key == offer_key)
+                .scalar_subquery()
+            )
+            query = select(OffersBody).filter(OffersBody.offer_id == subquery)
+            response = db.scalars(query).all()
+            return response
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
@@ -27,53 +51,7 @@ def create_offer_table(
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
-    # this function should be triggered by the POST offers endpoint
-    # print(user)
-    # print(offer_name)
-    if user_permissions.can_create_offer(user.id, db):
-        try:
-            table_models_optional.create_offer_table(engine, offer_name)
-            return {"message": f"{offer_name} created"}
-        except Exception as e:
-            print(e)
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"offer {offer_name} already exists",
-            )
-
-
-@router.get("/", response_model=List[offers_schemas.Product], status_code=status.HTTP_200_OK)
-def get_offer(
-    offer_name: str,
-    db: Session = Depends(get_db),
-    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
-):
-    if user_permissions.can_view_offer(user.id, db):
-        try:
-            response = db.execute(text(tables.get_offer(offer_name)))
-            return response.mappings().all()
-        except sqlalchemy.exc.ProgrammingError as e:
-            if e.orig.pgcode == "42P01":
-                # check if the offer table exists
-                logging.error(
-                    f"{datetime.utcnow()} {offer_name}: Table not found + {e}"
-                )
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"offer {offer_name} does not exist",
-                )
-            else:
-                logging.error(
-                    f"{datetime.utcnow()} {offer_name}: Internal Server Error + {e}"
-                )
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Internal Server Error",
-                )
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authorized"
-        )
+    pass
 
 
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
@@ -98,7 +76,7 @@ def delete_offer(
         db.execute(text(tables.delete_offer(offer_name)))
         logging.info(f"{datetime.utcnow()} {offer_name}: Table Deleted")
         return {"message": f"{offer_name} deleted"}
-    except sqlalchemy.exc.ProgrammingError as e:
+    except salch.exc.ProgrammingError as e:
         if e.orig.pgcode == "42P01":
             # check if the offer table exists
             logging.error(f"{datetime.utcnow()} {offer_name}: Table not found + {e}")
@@ -140,7 +118,7 @@ def update_offer(
             f"{datetime.utcnow()} {offer_name} -> {new_offer_name}: Table Updated"
         )
         return {"message": f"{offer_name} updated"}
-    except sqlalchemy.exc.ProgrammingError as e:
+    except salch.exc.ProgrammingError as e:
         if e.orig.pgcode == "42P01":
             # check if the offer table exists
             logging.error(f"{datetime.utcnow()} {offer_name}: Table not found + {e}")
@@ -177,7 +155,7 @@ def add_product_to_offer(
         db.execute(text(tables.add_product_to_offer(offer_name, **product)))
         logging.info(f"{datetime.utcnow()} {offer_name}: Product Added")
         return {"message": f"{offer_name} updated"}
-    except sqlalchemy.exc.ProgrammingError as e:
+    except salch.exc.ProgrammingError as e:
         if e.orig.pgcode == "42P01":
             # check if the offer table exists
             logging.error(f"{datetime.utcnow()} {offer_name}: Table not found + {e}")
