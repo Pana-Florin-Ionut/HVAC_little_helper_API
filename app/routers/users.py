@@ -83,3 +83,8 @@ def get_user(id: int, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND, detail=f"User with id {id} not found"
         )
     return user
+
+@router.get("", response_model=list[users_schemas.UserOut])
+def get_all_users(db: Session = Depends(get_db)):
+    users = db.query(table_models_required.Users).all()
+    return users

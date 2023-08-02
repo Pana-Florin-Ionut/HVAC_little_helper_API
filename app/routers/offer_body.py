@@ -2,6 +2,8 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 import sqlalchemy as salch
+
+from app.routers.utils import match_user_company
 from ..utils import get_offer_details
 from sqlalchemy import Subquery, select, update, insert, delete, MappingResult
 from ..table_models_required import Offers, OffersBody
@@ -30,19 +32,67 @@ def get_offer_key(
     offer_key: str,
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+
 ):
-    match user.role:
-        case "application_administrator":
-            subquery = (
+    subquery = (
                 select(Offers.id)
                 .where(Offers.company_key == company_key)
                 .where(Offers.project_key == project_key)
                 .where(Offers.offer_key == offer_key)
                 .scalar_subquery()
             )
-            query = select(OffersBody).filter(OffersBody.offer_id == subquery)
-            response = db.scalars(query).all()
-            return response
+    match user.role:
+        case "application_administrator":
+            try:
+                query = select(OffersBody).filter(OffersBody.offer_id == subquery)
+                response = db.scalars(query).all()
+                return response
+            except Exception as e:
+                logging.error(e)
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Offer body not found",
+                )
+        case "admin" | "user":
+            if user.company_key != company_key:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                )
+            try:
+                query = select(OffersBody).filter(OffersBody.offer_id == subquery)
+                response = db.scalars(query).all()
+                return response
+            except Exception as e:
+                logging.error(e)
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Offer body not found",
+                )
+        case "custom":
+            if user.company_key != company_key:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                )
+            if user_permissions.can_view_offer(user.id, db) == False:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                )
+            try:
+                query = select(OffersBody).filter(OffersBody.offer_id == subquery)
+                response = db.scalars(query).all()
+                return response
+            except Exception as e:
+                logging.error(e)
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Offer body not found",
+                )
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+            )
+                
+                
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
