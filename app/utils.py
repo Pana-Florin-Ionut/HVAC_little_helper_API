@@ -14,7 +14,7 @@ def hash(password: str):
 def verify(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
-
+# test
 def get_offer_details(offer_name: str, db: Session = Depends(get_db)):
     offer = (
         db.query(table_models_required.Offers)

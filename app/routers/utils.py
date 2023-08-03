@@ -6,6 +6,13 @@ from .. import table_models_required
 from ..database import get_db
 
 
+def check_user_exists(user_id: int, db: Session = Depends(get_db)) -> bool:
+    user_exists = db.query(
+        exists().where(table_models_required.Users.id == user_id)
+    ).scalar()
+    return user_exists
+
+
 def check_company_exists(company_id: int, db: Session = Depends(get_db)):
     query = select(table_models_required.Companies).where(
         table_models_required.Companies.id == company_id

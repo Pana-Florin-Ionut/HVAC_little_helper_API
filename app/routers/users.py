@@ -7,6 +7,7 @@ from ..database import get_db
 from ..schemas import users as users_schemas
 import sqlalchemy
 import logging
+from sqlalchemy import update
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -40,14 +41,22 @@ router = APIRouter(prefix="/users", tags=["Users"])
 #             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error creating user"
 #         )
 
+
 # new methon, uses form body for getting the results
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=users_schemas.UserOut)
-def create_user(user_credentials: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+@router.post(
+    "", status_code=status.HTTP_201_CREATED, response_model=users_schemas.UserOut
+)
+def create_user(
+    user_credentials: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
     # print(user_credentials)
     try:
         hashed_password = utils.hash(user_credentials.password)
         user_credentials.password = hashed_password
-        new_user = table_models_required.Users(email=user_credentials.username, password=user_credentials.password)
+        new_user = table_models_required.Users(
+            email=user_credentials.username, password=user_credentials.password
+        )
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
@@ -71,6 +80,31 @@ def create_user(user_credentials: OAuth2PasswordRequestForm = Depends(), db: Ses
         )
 
 
+@router.put(
+    "/{id}", status_code=status.HTTP_201_CREATED, response_model=users_schemas.UserOut
+)
+def update_user(
+    id: int, update_user: users_schemas.UserUpdate, db: Session = Depends(get_db)
+):
+    try:
+        user: users_schemas.UserOut = db.get(table_models_required.Users, id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=f"User not found"
+            )
+        user.company_key = update_user.company_key
+        user.role = update_user.role
+
+        db.commit()
+        db.refresh(user)
+        return user
+    except Exception as e:
+        logging.warn(f"{datetime.utcnow()} - Error updating user: {e} ")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error updating user"
+        )
+
+
 @router.get("/{id}", response_model=users_schemas.UserOut)
 def get_user(id: int, db: Session = Depends(get_db)):
     user = (
@@ -83,6 +117,7 @@ def get_user(id: int, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND, detail=f"User with id {id} not found"
         )
     return user
+
 
 @router.get("", response_model=list[users_schemas.UserOut])
 def get_all_users(db: Session = Depends(get_db)):

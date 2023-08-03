@@ -354,7 +354,9 @@ def update_offer(
                     update(table_models_required.Offers).where(
                         table_models_required.Offers.id == offer_id
                     )
-                ).values(**offer.dict())
+                ).values(
+                    **offer.dict()
+                )  # to be modified to model_dump
                 db.execute(query)
                 db.commit()
                 offer = (
@@ -372,11 +374,11 @@ def update_offer(
                 )
         case "admin":
             if not match_user_company(user.company_key, offer_id, db):
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="This offer is not from your company",
-                    )
-            try:                
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This offer is not from your company",
+                )
+            try:
                 query = (
                     update(table_models_required.Offers)
                     .where(table_models_required.Offers.id == offer_id)
