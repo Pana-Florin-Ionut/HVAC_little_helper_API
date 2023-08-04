@@ -112,6 +112,7 @@ class Permissions(Base):
     can_delete_project = Column(Boolean, server_default="FALSE")
     can_delete_offer = Column(Boolean, server_default="FALSE")
     can_delete_product = Column(Boolean, server_default="FALSE")
+    can_view_user = Column(Boolean, server_default="FALSE")
     can_add_user = Column(Boolean, server_default="FALSE")
     can_edit_user = Column(Boolean, server_default="FALSE")
     created = Column(

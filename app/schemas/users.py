@@ -42,8 +42,11 @@ class UserLogin(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    company_key: str | None = None
     role: str | None = None
 
     class Config:
         orm_mode = True
+
+
+class UserUpdateAdministrator(UserUpdate):
+    company_key: str | None = None

@@ -1,13 +1,16 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+
+from app.user_permissions import can_edit_user, can_view_user
+
+from .. import oauth2
 from .. import utils, table_models_required
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..schemas import users as users_schemas
 import sqlalchemy
 import logging
-from sqlalchemy import update
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -49,77 +52,210 @@ router = APIRouter(prefix="/users", tags=["Users"])
 def create_user(
     user_credentials: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
+    actor: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     # print(user_credentials)
-    try:
-        hashed_password = utils.hash(user_credentials.password)
-        user_credentials.password = hashed_password
-        new_user = table_models_required.Users(
-            email=user_credentials.username, password=user_credentials.password
-        )
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-        return new_user
-    except sqlalchemy.exc.IntegrityError as e:
-        if e.orig.pgcode == "23505":
-            # 23505 code is psycopg error code for unique violation
-            logging.warn(f"{datetime.utcnow()} - User already exists: {e} ")
+    match actor.role:
+        case "application_administrator":
+            try:
+                hashed_password = utils.hash(user_credentials.password)
+                user_credentials.password = hashed_password
+                new_user = table_models_required.Users(
+                    email=user_credentials.username, password=user_credentials.password
+                )
+                db.add(new_user)
+                db.commit()
+                db.refresh(new_user)
+                return new_user
+            except sqlalchemy.exc.IntegrityError as e:
+                if e.orig.pgcode == "23505":
+                    # 23505 code is psycopg error code for unique violation
+                    logging.warn(f"{datetime.utcnow()} - User already exists: {e} ")
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"User already exists",
+                    )
+                else:
+                    logging.warn(f"{datetime.utcnow()} - Error creating user: {e} ")
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Error creating user",
+                    )
+            except Exception as e:
+                logging.warn(f"{datetime.utcnow()} - Error creating user: {e} ")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Error creating user",
+                )
+        case _:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=f"User already exists"
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="You are not authorized to create accounts",
             )
-        else:
-            logging.warn(f"{datetime.utcnow()} - Error creating user: {e} ")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error creating user"
-            )
-    except Exception as e:
-        logging.warn(f"{datetime.utcnow()} - Error creating user: {e} ")
+
+
+@router.put(
+    "/admin/{id}",
+    status_code=status.HTTP_201_CREATED,
+    response_model=users_schemas.UserOut,
+)
+def update_user_by_administrator(
+    id: int,
+    update_user: users_schemas.UserUpdate,
+    actor_user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+    db: Session = Depends(get_db),
+):
+    user: users_schemas.UserOut = db.get(table_models_required.Users, id)
+    if not user:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error creating user"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"User not found"
         )
+    match actor_user.role:
+        case "application_administrator":
+            try:
+                user.company_key = update_user.company_key
+                user.role = update_user.role
+
+                db.commit()
+                db.refresh(user)
+                return user
+            except Exception as e:
+                logging.warn(f"{datetime.utcnow()} - Error updating user: {e} ")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Error updating user",
+                )
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+            )
 
 
 @router.put(
     "/{id}", status_code=status.HTTP_201_CREATED, response_model=users_schemas.UserOut
 )
-def update_user(
-    id: int, update_user: users_schemas.UserUpdate, db: Session = Depends(get_db)
+def update_user_by_admin(
+    id: int,
+    update_user: users_schemas.UserUpdate,
+    actor_user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+    db: Session = Depends(get_db),
 ):
-    try:
-        user: users_schemas.UserOut = db.get(table_models_required.Users, id)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=f"User not found"
-            )
-        user.company_key = update_user.company_key
-        user.role = update_user.role
-
-        db.commit()
-        db.refresh(user)
-        return user
-    except Exception as e:
-        logging.warn(f"{datetime.utcnow()} - Error updating user: {e} ")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error updating user"
-        )
-
-
-@router.get("/{id}", response_model=users_schemas.UserOut)
-def get_user(id: int, db: Session = Depends(get_db)):
-    user = (
-        db.query(table_models_required.Users)
-        .filter(table_models_required.Users.id == id)
-        .first()
-    )
+    user: users_schemas.UserOut = db.get(table_models_required.Users, id)
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"User with id {id} not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"User not found"
         )
-    return user
+    match actor_user.role:
+        case "application_administrator":
+            raise HTTPException(
+                status_code=status.HTTP_303_SEE_OTHER, detail="URL/admin/{id}"
+            )
+        case "admin":
+            try:
+                # Admins should be able to add just to their company
+                user.company_key = actor_user.company_key
+                user.role = update_user.role
+                db.commit()
+                db.refresh(user)
+                return user
+            except Exception as e:
+                logging.warn(f"{datetime.utcnow()} - Error updating user: {e} ")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Error updating user",
+                )
+        case "custom":
+            if can_edit_user(actor_user.id, db):
+                try:
+                    # Admins should be able to add just to their company
+                    user.company_key = actor_user.company_key
+                    user.role = update_user.role
+                    db.commit()
+                    db.refresh(user)
+                    return user
+                except Exception as e:
+                    logging.warn(f"{datetime.utcnow()} - Error updating user: {e} ")
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Error updating user",
+                    )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+                )
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+            )
 
 
-@router.get("", response_model=list[users_schemas.UserOut])
-def get_all_users(db: Session = Depends(get_db)):
-    users = db.query(table_models_required.Users).all()
-    return users
+@router.get(
+    "/{id}", status_code=status.HTTP_200_OK, response_model=users_schemas.UserOut
+)
+def get_user(
+    id: int,
+    db: Session = Depends(get_db),
+    actor: users_schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    print(actor)
+    user = db.get(table_models_required.Users, id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"User not found"
+        )
+    match actor.role:
+        case "application_administrator":
+            return user
+        case "admin":
+            if user.company_key == None or user.company_key == actor.company_key:
+                return user
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"User not in your company",
+                )
+        case "custom":
+            if not can_view_user(actor.id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+                )
+            if user.company_key == None or user.company_key == actor.company_key:
+                return user
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"User not in your company",
+                )
+
+
+@router.get(
+    "", status_code=status.HTTP_200_OK, response_model=list[users_schemas.UserOut]
+)
+def get_all_users(
+    actor: users_schemas.UserOut = Depends(oauth2.get_current_user),
+    db: Session = Depends(get_db),
+):
+    print(actor)
+    match actor.role:
+        case "application_administrator":
+            return db.query(table_models_required.Users).all()
+        case "admin":
+            return (
+                db.query(table_models_required.Users)
+                .where(table_models_required.Users.company_key == actor.company_key)
+                .all()
+            )
+        case "custom":
+            if not can_view_user(actor.id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+                )
+            return (
+                db.query(table_models_required.Users)
+                .where(table_models_required.Users.company_key == actor.company_key)
+                .all()
+            )
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+            )

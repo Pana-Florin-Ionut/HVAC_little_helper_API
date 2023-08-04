@@ -3,15 +3,43 @@ from . import table_models_required
 from sqlalchemy.orm import Session
 
 
-def can_create_project(user_id: int, db: Session) -> bool:
-    create_project_permission = (
-        db.query(table_models_required.Permissions.can_create_project)
-        .filter(table_models_required.Permissions.user_id == user_id)
-        .first()
+def can_view_offer(user_id: int, db: Session) -> bool:
+    # Correct way to use it, it returns a bool
+    query = select(table_models_required.Permissions.can_view_offer).where(
+        table_models_required.Permissions.user_id == user_id
     )
-    return create_project_permission
+
+    view_offer_permission = db.scalars(
+        query
+    ).first()  # we should search if db.scalar(query) is working
+    return view_offer_permission
 
 
+def can_create_project(user_id: int, db: Session) -> bool:
+    query = select(table_models_required.Permissions.can_create_project).where(
+        table_models_required.Permissions.user_id == user_id
+    )
+    can_create_project = db.scalars(query).first()
+    return can_create_project
+
+
+def can_edit_user(user_id: int, db: Session) -> bool:
+    query = select(table_models_required.Permissions.can_edit_user).where(
+        table_models_required.Permissions.user_id == user_id
+    )
+    can_edit_user = db.scalars(query).first()
+    return can_edit_user
+
+
+def can_view_user(user_id: int, db: Session) -> bool:
+    query = select(table_models_required.Permissions.can_view_user).where(
+        table_models_required.Permissions.user_id == user_id
+    )
+    can_view_user = db.scalars(query).first()
+    return can_view_user
+
+
+# Need redone
 def can_view_project(user_id: int, db: Session) -> bool:
     query = select(table_models_required.Permissions.can_view_offer).where(
         table_models_required.Permissions.user_id == user_id
@@ -28,16 +56,6 @@ def can_create_offer(user_id: int, db: Session) -> bool:
         .first()
     )
     return create_offer_permission
-
-
-def can_view_offer(user_id: int, db: Session) -> bool:
-    # Correct way to use it, it returns a bool
-    query = select(table_models_required.Permissions.can_view_offer).where(
-        table_models_required.Permissions.user_id == user_id
-    )
-
-    view_offer_permission = db.scalars(query).first()
-    return view_offer_permission
 
 
 def can_create_product(user_id: int, db: Session) -> bool:
