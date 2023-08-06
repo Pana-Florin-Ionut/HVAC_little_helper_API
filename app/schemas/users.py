@@ -24,6 +24,8 @@ class UserCreate(BaseModel):
 
 class UserOut(BaseModel):
     id: int
+    first_name: str | None = None
+    last_name: str | None = None
     email: EmailStr
     company_key: str | None = None
     role: str | None = None
@@ -42,6 +44,8 @@ class UserLogin(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    first_name: str | None = None
+    last_name: str | None = None
     role: str | None = None
 
     class Config:

@@ -26,6 +26,8 @@ class Users(Base):
     __tablename__ = "users"
     #  server_default=users_id_seq.next_value(),
     id = Column(Integer, primary_key=True, index=True)
+    first_name = Column(String, nullable=True)
+    last_name = Column(String, nullable=True)
     email = Column(String, nullable=False, unique=True)
     password = Column(String, nullable=False)
     company_key = Column(String, ForeignKey("companies.company_key"), nullable=True)
