@@ -144,3 +144,10 @@ def get_offer_details_id(id: int, db: Session = Depends(get_db)):
         table_models_required.Offers.id == id
     )
     return db.scalars(query).first()
+
+
+def get_product_from_offer(id: int, db: Session = Depends(get_db)):
+    query = select(table_models_required.OffersBody).where(
+        table_models_required.OffersBody.offer_id == id
+    )
+    return db.scalars(query).first()

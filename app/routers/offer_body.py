@@ -5,7 +5,7 @@ import sqlalchemy as salch
 
 from app.routers.utils import match_user_company
 from app.schemas import companies, offers
-from .utils import get_offer_details_id
+from .utils import get_offer_details_id, get_product_from_offer
 from sqlalchemy import Subquery, select, update, insert, delete, MappingResult
 from ..table_models_required import Offers, OffersBody
 from .. import oauth2, table_models_required, table_models_optional, tables
@@ -94,16 +94,19 @@ def get_offer_key(
 
 
 @router.get(
-    "/{id}",
+    "/{offer_id}",
     status_code=status.HTTP_200_OK,
     response_model=List[products_schemas.Product],
 )
 def get_offer_details(
-    id: int,
+    offer_id: int,
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
-    query = select(OffersBody).filter(OffersBody.offer_id == id)
+    """
+    Get a list of products from same offer (offer_id)
+    """
+    query = select(OffersBody).filter(OffersBody.offer_id == offer_id)
     match user.id:
         case "application_administrator":
             try:
@@ -117,7 +120,7 @@ def get_offer_details(
                 )
         case "admin" | "user" | "worker":
             try:
-                offer: offers.OffersRetrieve = get_offer_details_id(id, db)
+                offer: offers.OffersRetrieve = get_offer_details_id(offer_id, db)
                 if user.company_key != offer.company_key:
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
@@ -131,7 +134,7 @@ def get_offer_details(
                     detail="Offer body not found",
                 )
         case "custom":
-            offer: offers.OffersRetrieve = get_offer_details_id(id, db)
+            offer: offers.OffersRetrieve = get_offer_details_id(offer_id, db)
 
             if user.company_key != offer.company_key:
                 raise HTTPException(
@@ -161,7 +164,7 @@ def create_offer_table(
     pass
 
 
-@router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{offer_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_offer(
     offer_id: int,
     db: Session = Depends(get_db),
@@ -203,18 +206,27 @@ def delete_offer(
         )
 
 
-@router.put("/", status_code=status.HTTP_202_ACCEPTED)
+@router.put(
+    "/{product_id}",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=offers.OffersRetrieve,
+)
 def update_offer(
-    offer_name: str,
-    new_offer_name: str,
+    offer_id: int,
+    new_product_name: str,
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
+    product: offers.Product = get_product_from_offer(offer_id, db)
+    offer: offers.OffersRetrieve = get_offer_details_id(offer_id, db)
     if user.company_key is None or user.role != "administrator":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
         )
-    if user.company_key != get_offer_details(offer_name, db).company_key:
+    if user.company_key != product.company_key and user.role not in [
+        "admin",
+        "manager",
+    ]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
         )
@@ -223,19 +235,21 @@ def update_offer(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
         )
     try:
-        db.execute(text(tables.modify_offer(offer_name, new_offer_name)))
+        offer.offer_name = new_product_name
+        db.commit()
+        db.refresh(offer)
 
         logging.info(
-            f"{datetime.utcnow()} {offer_name} -> {new_offer_name}: Table Updated"
+            f"{datetime.utcnow()} {offer_id} -> {new_product_name}: Table Updated"
         )
-        return {"message": f"{offer_name} updated"}
+        return offer
     except salch.exc.ProgrammingError as e:
         if e.orig.pgcode == "42P01":
             # check if the offer table exists
-            logging.error(f"{datetime.utcnow()} {offer_name}: Table not found + {e}")
+            logging.error(f"{datetime.utcnow()} {offer_id}: Table not found + {e}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     except Exception as e:
-        logging.error(f"{datetime.utcnow()} {offer_name}: Internal Server Error + {e}")
+        logging.error(f"{datetime.utcnow()} {offer_id}: Internal Server Error + {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal Server Error",
