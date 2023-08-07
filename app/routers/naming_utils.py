@@ -2,14 +2,14 @@ from fastapi import Depends
 from pytest import Session
 from sqlalchemy import exists, literal, select, update
 
-from ..schemas import projects as project_schemas 
+from ..schemas import projects as project_schemas
 
 from ..database import get_db
 
 from .. import table_models_required
 
 
-
+# NOT IN USE
 
 # def get_projects(company_id: int, db: Session = Depends(get_db)):
 #     # query = select(table_models_required.Projects).where(
@@ -32,6 +32,7 @@ from .. import table_models_required
 #     # print(projects)
 #     return projects
 
+
 def get_all_company_projects(company_id: int, db: Session = Depends(get_db)):
     """
     Return all projects from a company
@@ -46,7 +47,9 @@ def get_all_company_projects(company_id: int, db: Session = Depends(get_db)):
 
 
 def update_project_name(
-    projects: list[project_schemas.Project], old_project_name: str, new_project_name: str
+    projects: list[project_schemas.Project],
+    old_project_name: str,
+    new_project_name: str,
 ):
     print(projects)
     # list_projects_name: list[str] = []
@@ -88,7 +91,6 @@ def rename_project_name(old_company_key: str, new_company_key: str, project_name
 
     """
     return new_company_key + project_name.removeprefix(old_company_key)
-
 
 
 # def update_products(

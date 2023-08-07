@@ -54,7 +54,7 @@ def create_user(
     user_credentials: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
-    # print(user_credentials)
+    # This should send a email for confirmation
 
     try:
         hashed_password = utils.hash(user_credentials.password)
@@ -163,7 +163,7 @@ def update_user_by_admin(
         case "custom":
             if can_edit_user(actor_user.id, db):
                 try:
-                    # Admins should be able to add just to their company
+                    # Admins like users should be able to add just to their company
                     user.company_key = actor_user.company_key
                     user.role = update_user.role
                     db.commit()

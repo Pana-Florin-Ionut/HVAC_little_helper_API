@@ -137,3 +137,10 @@ def match_user_company(
         .where(table_models_required.Offers.company_key == user_company_key)
     ).scalar()
     return is_match
+
+
+def get_offer_details_id(id: int, db: Session = Depends(get_db)):
+    query = select(table_models_required.Offers).where(
+        table_models_required.Offers.id == id
+    )
+    return db.scalars(query).first()
