@@ -13,7 +13,7 @@ class Offer(BaseModel):
     products: list[Product] | None = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class Offers(BaseModel):
@@ -28,7 +28,7 @@ class Offers(BaseModel):
     offer_body: List[Offer | None]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class OffersRetrieve(BaseModel):
@@ -47,7 +47,7 @@ class OffersRetrieve(BaseModel):
     project: ProjectSingleOut
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class OffersCreateUser(BaseModel):
@@ -58,14 +58,16 @@ class OffersCreateUser(BaseModel):
     offer_key: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
+
 
 class OffersCreateAdmin(OffersCreateUser):
     company_key: str
+
 
 class OffersUpdate(BaseModel):
     offer_name: str
     is_finalized: bool
 
     class Config:
-        orm_mode = True
+        from_attributes = True

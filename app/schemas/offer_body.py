@@ -12,3 +12,7 @@ from .products import Product
 class OfferBody(BaseModel):
     offer_id: int
     product: Product
+    observations: str
+
+    class Config:
+        from_attributes = True

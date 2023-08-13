@@ -4,7 +4,7 @@ from typing import List
 import sqlalchemy as salch
 
 from app.routers.utils import match_user_company
-from app.schemas import companies, offers
+from app.schemas import companies, offer_body, offers
 from .utils import get_offer_details_id, get_product_from_offer
 from sqlalchemy import Subquery, select, update, insert, delete, MappingResult
 from ..table_models_required import Offers, OffersBody
@@ -27,7 +27,7 @@ router = APIRouter(prefix="/offer", tags=["Offer Body"])
     response_model=List[products_schemas.Product],
     status_code=status.HTTP_200_OK,
 )
-def get_offer_key(
+def get_offer_details_keys(
     company_key: str,
     project_key: str,
     offer_key: str,
@@ -96,9 +96,9 @@ def get_offer_key(
 @router.get(
     "/{offer_id}",
     status_code=status.HTTP_200_OK,
-    response_model=List[products_schemas.Product],
+    response_model=list[offer_body.OfferBody],
 )
-def get_offer_details(
+def get_offer_details_id(
     offer_id: int,
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
@@ -107,11 +107,13 @@ def get_offer_details(
     Get a list of products from same offer (offer_id)
     """
     query = select(OffersBody).filter(OffersBody.offer_id == offer_id)
-    match user.id:
+    print(f"Query: {query}")
+    match user.role:
         case "application_administrator":
             try:
                 response = db.scalars(query).all()
                 return response
+
             except Exception as e:
                 logging.error(e)
                 raise HTTPException(
@@ -155,7 +157,11 @@ def get_offer_details(
                 )
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{offer_id}",
+    status_code=status.HTTP_201_CREATED,
+    response_model=offer_body.OfferBody,
+)
 def create_offer_table(
     offer_name: str,
     db: Session = Depends(get_db),
@@ -268,14 +274,14 @@ def add_product_to_offer(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
         )
-    if user.company_id != get_offer_details(offer_name, db).company_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
-        )
-    if user.role not in ["admin", "manager", "worker"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
-        )
+    # if user.company_id != get_offer_details_id(offer_name, db).company_id:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+    #     )
+    # if user.role not in ["admin", "manager", "worker"]:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+    #     )
     try:
         db.execute(text(tables.add_product_to_offer(offer_name, **product)))
         logging.info(f"{datetime.utcnow()} {offer_name}: Product Added")
