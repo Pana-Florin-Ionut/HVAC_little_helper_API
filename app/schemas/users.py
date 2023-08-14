@@ -10,7 +10,7 @@ class User(BaseModel):
     password: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class UserCreate(BaseModel):
@@ -19,7 +19,7 @@ class UserCreate(BaseModel):
     company_key: str | None = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class UserOut(BaseModel):
@@ -32,7 +32,7 @@ class UserOut(BaseModel):
     created: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class UserLogin(BaseModel):
@@ -40,7 +40,7 @@ class UserLogin(BaseModel):
     password: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class UserUpdate(BaseModel):
@@ -49,7 +49,7 @@ class UserUpdate(BaseModel):
     role: str | None = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class UserUpdateAdministrator(UserUpdate):

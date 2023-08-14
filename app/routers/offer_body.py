@@ -2,9 +2,10 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 import sqlalchemy as salch
+from . import utils
 
 from app.routers.utils import match_user_company
-from app.schemas import companies, offer_body, offers
+from app.schemas import companies, offer_body, offers, products
 from .utils import get_offer_details_id, get_product_from_offer
 from sqlalchemy import Subquery, select, update, insert, delete, MappingResult
 from ..table_models_required import Offers, OffersBody
@@ -24,7 +25,7 @@ router = APIRouter(prefix="/offer", tags=["Offer Body"])
 
 @router.get(
     "/{company_key}/{project_key}/{offer_key}",
-    response_model=List[products_schemas.Product],
+    response_model=list[products_schemas.ProductOut],
     status_code=status.HTTP_200_OK,
 )
 def get_offer_details_keys(
@@ -96,9 +97,9 @@ def get_offer_details_keys(
 @router.get(
     "/{offer_id}",
     status_code=status.HTTP_200_OK,
-    response_model=list[offer_body.OfferBody],
+    response_model=list[products.ProductOut],
 )
-def get_offer_details_id(
+def get_offer_details(
     offer_id: int,
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
@@ -160,14 +161,74 @@ def get_offer_details_id(
 @router.post(
     "/{offer_id}",
     status_code=status.HTTP_201_CREATED,
-    response_model=offer_body.OfferBody,
+    response_model=products.ProductOut,
 )
-def create_offer_table(
-    offer_name: str,
+def add_product_to_offer(
+    offer_id: int,
+    product: products.Product,
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
-    pass
+    match user.role:
+        case "application_administrator":
+            try:
+                query = (
+                    insert(OffersBody)
+                    .values(
+                        **product.model_dump(), offer_id=offer_id, created_by=user.id
+                    )
+                    .returning(OffersBody)
+                )
+                response = db.scalars(query)
+                db.commit()
+                logging.info(
+                    f"{datetime.utcnow()} product: {product} added to offer with id: {offer_id}"
+                )
+                return response.first()
+            except Exception as e:
+                logging.error(
+                    f"{datetime.utcnow()} {offer_id}: Internal Server Error + {e}"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Internal Server Error",
+                )
+        case "admin" | "user":
+            offer: offers.OffersRetrieve = utils.get_offer_details_id(offer_id, db)
+            if user.company_key != offer.company_key:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                )
+            if user_permissions.can_view_offer(user.id, db) == False:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                )
+            try:
+                query = (
+                    insert(OffersBody)
+                    .values(
+                        **product.model_dump(), offer_id=offer_id, created_by=user.id
+                    )
+                    .returning(OffersBody)
+                )
+                response = db.scalars(query)
+                db.commit()
+                logging.info(
+                    f"{datetime.utcnow()} product: {product} added to offer with id: {offer_id}"
+                )
+                return response.first()
+            except Exception as e:
+                logging.error(
+                    f"{datetime.utcnow()} {offer_id}: Internal Server Error + {e}"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Internal Server Error",
+                )
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+            )
 
 
 @router.delete("/{offer_id}", status_code=status.HTTP_204_NO_CONTENT)

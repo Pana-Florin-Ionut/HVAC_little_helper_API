@@ -10,7 +10,7 @@ class Company(BaseModel):
     company_key: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class CompanyCreate(BaseModel):
@@ -18,7 +18,7 @@ class CompanyCreate(BaseModel):
     company_key: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class CompanyOut(BaseModel):
@@ -28,4 +28,4 @@ class CompanyOut(BaseModel):
     created: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
