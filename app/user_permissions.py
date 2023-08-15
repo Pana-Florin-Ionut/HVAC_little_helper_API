@@ -39,6 +39,19 @@ def can_view_user(user_id: int, db: Session) -> bool:
     return can_view_user
 
 
+def can_create_offer(user_id: int, db: Session) -> bool:
+    # create_offer_permission = (
+    #     db.query(table_models_required.Permissions.can_create_offer)
+    #     .filter(table_models_required.Permissions.user_id == user_id)
+    #     .first()
+    # )
+    query = select(table_models_required.Permissions.can_create_offer).where(
+        table_models_required.Permissions.user_id == user_id
+    )
+    create_offer_permission = db.scalars(query).first()
+    return create_offer_permission
+
+
 # Need redone
 def can_view_project(user_id: int, db: Session) -> bool:
     query = select(table_models_required.Permissions.can_view_offer).where(
@@ -47,15 +60,6 @@ def can_view_project(user_id: int, db: Session) -> bool:
     view_project_permission = db.scalar(query)
     print(view_project_permission)
     return view_project_permission
-
-
-def can_create_offer(user_id: int, db: Session) -> bool:
-    create_offer_permission = (
-        db.query(table_models_required.Permissions.can_create_offer)
-        .filter(table_models_required.Permissions.user_id == user_id)
-        .first()
-    )
-    return create_offer_permission
 
 
 def can_create_product(user_id: int, db: Session) -> bool:

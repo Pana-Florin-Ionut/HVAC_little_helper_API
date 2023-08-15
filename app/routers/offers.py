@@ -354,9 +354,7 @@ def update_offer(
                     update(table_models_required.Offers).where(
                         table_models_required.Offers.id == offer_id
                     )
-                ).values(
-                    **offer.model_dump()
-                )  # to be modified to model_dump
+                ).values(**offer.model_dump())
                 db.execute(query)
                 db.commit()
                 offer = (

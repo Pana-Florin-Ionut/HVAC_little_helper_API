@@ -138,15 +138,15 @@ def get_offer_details(
                 )
         case "custom":
             offer: offers.OffersRetrieve = get_offer_details_id(offer_id, db)
-
-            if user.company_key != offer.company_key:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
-                )
             if user_permissions.can_view_offer(user.id, db) == False:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
                 )
+            if user.company_key != offer.company_key:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                )
+
             try:
                 response = db.scalars(query).all()
                 return response
@@ -194,14 +194,42 @@ def add_product_to_offer(
                     detail=f"Internal Server Error",
                 )
         case "admin" | "user":
-            offer: offers.OffersRetrieve = utils.get_offer_details_id(offer_id, db)
+            offer: offers.OffersRetrieve = get_offer_details_id(offer_id, db)
             if user.company_key != offer.company_key:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not your offer"
+                )
+            try:
+                query = (
+                    insert(OffersBody)
+                    .values(
+                        **product.model_dump(), offer_id=offer_id, created_by=user.id
+                    )
+                    .returning(OffersBody)
+                )
+                response = db.scalars(query)
+                db.commit()
+                logging.info(
+                    f"{datetime.utcnow()} product: {product} added to offer with id: {offer_id}"
+                )
+                return response.first()
+            except Exception as e:
+                logging.error(
+                    f"{datetime.utcnow()} {offer_id}: Internal Server Error + {e}"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Internal Server Error",
+                )
+        case "custom":
+            offer: offers.OffersRetrieve = utils.get_offer_details_id(offer_id, db)
+            if user_permissions.can_view_offer(user.id, db):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
                 )
-            if user_permissions.can_view_offer(user.id, db) == False:
+            if user.company_key != offer.company_key:
                 raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not your offer"
                 )
             try:
                 query = (
@@ -231,130 +259,90 @@ def add_product_to_offer(
             )
 
 
-@router.delete("/{offer_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{offer_id}/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+# need to remove offer_id as you can get it from the product schema
 def delete_offer(
+    product_id: int,
     offer_id: int,
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     offer: offers.OffersRetrieve = get_offer_details_id(offer_id, db)
-    if user.company_key is None or user.role != "application_administrator":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
-        )
-    elif user.company_key != offer.company_key and user.role not in [
-        "admin",
-        "manager",
-    ]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
-        )
-    try:
-        # db.execute(text(tables.delete_offer(offer_id)))
-        db.delete(offer)
-        db.commit()
-        logging.info(f"{datetime.utcnow()} {offer.offer_name}: Table Deleted")
-        return {"message": f"{offer.offer_name} deleted"}
-    except salch.exc.ProgrammingError as e:
-        if e.orig.pgcode == "42P01":
-            # check if the offer table exists
-            logging.error(
-                f"{datetime.utcnow()} {offer.offer_name}: Table not found + {e}"
+    # print(user.company_key)
+    # print(user.role)
+    match user.role:
+        case "application_administrator":
+            db.delete(table_models_required.OffersBody, id=product_id)
+            db.commit()
+            logging.info(f"{datetime.utcnow()} {offer.offer_name}: Table Deleted")
+            return {
+                "message": f"Product {product_id} was deleted from {offer.offer_name}"
+            }
+        case "admin" | "manager":
+            if user.company_key != offer.company_key:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not your offer"
+                )
+            db.delete(table_models_required.OffersBody, id=product_id)
+            db.commit()
+            logging.info(
+                f"{datetime.utcnow()} Product {product_id} was deleted from {offer.offer_name}"
             )
+            return {
+                "message": f"Product {product_id} was deleted from {offer.offer_name}"
+            }
+        case "custom":
+            if not user_permissions.can_create_offer(user.id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                )
+            db.delete(table_models_required.OffersBody, id=product_id)
+            db.commit()
+            logging.info(
+                f"{datetime.utcnow()} Product {product_id} was deleted from {offer.offer_name}"
+            )
+            return {
+                "message": f"Product {product_id} was deleted from {offer.offer_name}"
+            }
+        case _:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Offer with id = {offer_id} does not exist",
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
             )
-    except Exception as e:
-        logging.error(f"{datetime.utcnow()} {offer_id}: Internal Server Error + {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal Server Error",
-        )
 
 
 @router.put(
     "/{product_id}",
     status_code=status.HTTP_202_ACCEPTED,
-    response_model=offers.OffersRetrieve,
+    response_model=products.ProductOut,
 )
 def update_offer(
-    offer_id: int,
-    new_product_name: str,
+    product_update: products.Product,
+    product_id: int,
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
-    product: offers.Product = get_product_from_offer(offer_id, db)
-    offer: offers.OffersRetrieve = get_offer_details_id(offer_id, db)
-    if user.company_key is None or user.role != "administrator":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
-        )
-    if user.company_key != product.company_key and user.role not in [
-        "admin",
-        "manager",
-    ]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
-        )
-    if user.role not in ["admin", "manager"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
-        )
-    try:
-        offer.offer_name = new_product_name
-        db.commit()
-        db.refresh(offer)
-
-        logging.info(
-            f"{datetime.utcnow()} {offer_id} -> {new_product_name}: Table Updated"
-        )
-        return offer
-    except salch.exc.ProgrammingError as e:
-        if e.orig.pgcode == "42P01":
-            # check if the offer table exists
-            logging.error(f"{datetime.utcnow()} {offer_id}: Table not found + {e}")
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        logging.error(f"{datetime.utcnow()} {offer_id}: Internal Server Error + {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal Server Error",
-        )
-
-
-@router.post("/add_product", status_code=status.HTTP_202_ACCEPTED)
-def add_product_to_offer(
-    offer_name: str,
-    product: products_schemas.Product,
-    db: Session = Depends(get_db),
-    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
-):
-    print(product)
-    if user.company_id is None or user.role != "administrator":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
-        )
-    # if user.company_id != get_offer_details_id(offer_name, db).company_id:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
-    #     )
-    # if user.role not in ["admin", "manager", "worker"]:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
-    #     )
-    try:
-        db.execute(text(tables.add_product_to_offer(offer_name, **product)))
-        logging.info(f"{datetime.utcnow()} {offer_name}: Product Added")
-        return {"message": f"{offer_name} updated"}
-    except salch.exc.ProgrammingError as e:
-        if e.orig.pgcode == "42P01":
-            # check if the offer table exists
-            logging.error(f"{datetime.utcnow()} {offer_name}: Table not found + {e}")
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        logging.error(f"{datetime.utcnow()} {offer_name}: Internal Server Error + {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal Server Error",
-        )
+    product: products.ProductOut = (
+        db.query(table_models_required.OffersBody)
+        .filter(table_models_required.OffersBody.id == product_id)
+        .first()
+    )
+    # offer: offers.OffersRetrieve = db.get(table_models_required.Offers, product.offer_id)
+    match user.role:
+        case "application_administrator":
+            try:
+                query = (
+                    update(table_models_required.OffersBody)
+                    .where(table_models_required.OffersBody.id == product_id)
+                    .values(**product_update.model_dump())
+                    .returning(OffersBody)
+                )
+                response = db.scalars(query).first()
+                db.commit()
+                # logging.info(f"{datetime.utcnow()} {offer.offer_name}: Table Updated")
+                return response
+            except Exception as e:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e)
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+            )
