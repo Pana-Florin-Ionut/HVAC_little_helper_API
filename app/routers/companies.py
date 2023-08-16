@@ -11,6 +11,7 @@ from ..schemas import companies as companies_schema
 from ..schemas import users as users_schemas
 from .utils import check_company_exists, check_company_has_projects, get_company_details
 import sqlalchemy
+from ..roles import Roles
 
 
 router = APIRouter(prefix="/companies", tags=["Companies"])
@@ -28,27 +29,11 @@ def get_companies(
     skip: int = 0,
 ):
     match user.role:
-        case "application_administrator":
+        case Roles.app_admin:
             query = select(table_models_required.Companies)
-            print(query)
-
-            # if company_name:
-            #     query = query.where(
-            #         table_models_required.Companies.company_name.ilike(
-            #             f"%{company_name}%"
-            #         )
-            #     )
-            # if company_key:
-            #     query = query.where(
-            #         table_models_required.Companies.company_key.ilike(
-            #             f"%{company_key}%"
-            #         )
-            #     )
-            # query = query.limit(limit).offset(skip)
-            # print(query)
             response = db.scalars(query).all()
             return response
-        case "test_user":
+        case Roles.test:
             return db.scalars(
                 select(table_models_required.Companies)
                 .where(
@@ -60,7 +45,7 @@ def get_companies(
                 .limit(limit)
                 .offset(skip)
             ).all()
-        case "admin":
+        case Roles.admin:
             return (
                 db.query(table_models_required.Companies)
                 .where(table_models_required.Companies.is_verified == True)
@@ -91,7 +76,7 @@ def create_company(
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     match user.role:
-        case "application_administrator":
+        case Roles.app_admin:
             try:
                 company = company.dict()
                 company["is_verified"] = True
@@ -113,7 +98,7 @@ def create_company(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Bad Request",
                 )
-        case "test_user":
+        case Roles.test:
             try:
                 company = company.dict()
                 company["is_verified"] = True
@@ -149,7 +134,7 @@ def delete_company(
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     match user.role:
-        case "application_administrator":
+        case Roles.app_admin:
             if not check_company_exists(company_id, db):
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -162,7 +147,7 @@ def delete_company(
             )
             db.execute(query)
             db.commit()
-        case "test_user":
+        case Roles.test:
             if not check_company_exists(company_id, db):
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -208,7 +193,7 @@ def update_company(
         )
 
     match user.role:
-        case "application_administrator":
+        case Roles.app_admin:
             if (
                 old_company.company_key != updaded_company.company_key
                 and check_company_has_projects(company_id, db) != None
@@ -227,7 +212,7 @@ def update_company(
             db.execute(update_query)
             db.commit()
             return get_company_details(company_id, db)
-        case "test_user":
+        case Roles.test:
             if (
                 old_company.company_key != updaded_company.company_key
                 and check_company_has_projects(company_id, db) != None

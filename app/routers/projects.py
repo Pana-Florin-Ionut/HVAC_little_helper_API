@@ -15,6 +15,7 @@ from .utils import (
 )
 import sqlalchemy
 from .. import user_permissions
+from ..roles import Roles
 
 router = APIRouter(
     prefix="/projects",
@@ -39,7 +40,7 @@ def get_projects(
     offset: int = 0,
 ):
     match user.role:
-        case "application_administrator":
+        case Roles.app_admin:
             try:
                 query = select(table_models_required.Projects)
                 # print(f"QUERY: {query}")
@@ -91,7 +92,7 @@ def get_projects(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Project not found",
                 )
-        case "admin" | "manager" | "user":
+        case Roles.admin | Roles.manager | Roles.user:
             try:
                 query = select(table_models_required.Projects).where(
                     table_models_required.Projects.company_key == user.company_key
@@ -175,14 +176,16 @@ def create_project(
     user: schema_users.UserOut = Depends(oauth2.get_current_user),
 ):
     match user.role:
-        case "application_administrator":
+        case Roles.app_admin:
             raise HTTPException(
                 status_code=status.HTTP_303_SEE_OTHER, details="Use URL/projects/admin"
             )
-        case "admin" | "manager" | "user":
+        case Roles.admin | Roles.manager | Roles.user:
             try:
                 db_project: dict = table_models_required.Projects(
-                    created_by=user.id, company_key=user.company_key, **project.dict()
+                    created_by=user.id,
+                    company_key=user.company_key,
+                    **project.model_dump(),
                 )
                 db.add(db_project)
                 db.commit()
@@ -206,7 +209,7 @@ def create_project(
                     db_project: dict = table_models_required.Projects(
                         created_by=user.id,
                         company_key=user.company_key,
-                        **project.dict(),
+                        **project.model_dump(),
                     )
                     db.add(db_project)
                     db.commit()
@@ -242,11 +245,11 @@ def create_project(
     user: schema_users.UserOut = Depends(oauth2.get_current_user),
 ):
     match user.role:
-        case "application_administrator":
+        case Roles.app_admin:
             try:
                 # print(project)
                 db_project = table_models_required.Projects(
-                    created_by=user.id, **project.dict()
+                    created_by=user.id, **project.model_dump()
                 )
                 db.add(db_project)
                 db.commit()
@@ -301,7 +304,7 @@ def update_project(
     db: Session = Depends(get_db),
 ):
     match user.role:
-        case "application_administrator":
+        case Roles.app_admin:
             try:
                 if not project_exists_key(project_key, company_key, db):
                     raise HTTPException(
@@ -313,7 +316,7 @@ def update_project(
                     update(table_models_required.Projects)
                     .where(table_models_required.Projects.project_key == project_key)
                     .filter(table_models_required.Projects.company_key == company_key)
-                    .values(**project.dict())
+                    .values(**project.model_dump())
                 )
                 db.execute(query)
                 db.commit()
@@ -343,7 +346,7 @@ def delete_project(
     user: schema_users.UserOut = Depends(oauth2.get_current_user),
 ):
     match user.role:
-        case "application_administrator":
+        case Roles.app_admin:
             if not project_exists_key(project_key, company_key, db):
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -370,7 +373,7 @@ def delete_project(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Error deleting project, please check your inputs",
                 )
-        case "admin":
+        case Roles.admin:
             if not project_exists_key(project_key, db):
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,

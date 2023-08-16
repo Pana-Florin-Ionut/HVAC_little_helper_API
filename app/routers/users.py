@@ -12,6 +12,7 @@ from ..schemas import users as users_schemas
 from sqlalchemy import select
 import sqlalchemy.exc as exc
 import logging
+from ..roles import Roles
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -107,7 +108,7 @@ def update_user_by_administrator(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"User not found"
         )
     match actor_user.role:
-        case "application_administrator":
+        case Roles.app_admin:
             try:
                 user.company_key = update_user.company_key
                 user.role = update_user.role
@@ -142,11 +143,11 @@ def update_user_by_admin(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"User not found"
         )
     match actor_user.role:
-        case "application_administrator":
+        case Roles.app_admin:
             raise HTTPException(
                 status_code=status.HTTP_303_SEE_OTHER, detail="URL/admin/{id}"
             )
-        case "admin":
+        case Roles.admin:
             try:
                 # Admins should be able to add just to their company
                 user.company_key = actor_user.company_key
@@ -160,7 +161,7 @@ def update_user_by_admin(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Error updating user",
                 )
-        case "custom":
+        case Roles.custom:
             if can_edit_user(actor_user.id, db):
                 try:
                     # Admins like users should be able to add just to their company
@@ -193,16 +194,16 @@ def get_all_users(
     db: Session = Depends(get_db),
 ):
     match actor.role:
-        case "application_administrator":
+        case Roles.app_admin:
             return db.query(table_models_required.Users).all()
-        case "admin":
+        case Roles.admin:
             return (
                 db.query(table_models_required.Users)
                 .where(table_models_required.Users.company_key == actor.company_key)
                 .where(table_models_required.Users.role == "")
                 .all()
             )
-        case "custom":
+        case Roles.custom:
             if not can_view_user(actor.id, db):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
@@ -240,9 +241,9 @@ def get_all_users_by_admin(
         query = query.where(table_models_required.Users.email.ilike(email))
     query = query.limit(limit).offset(offset)
     match actor.role:
-        case "application_administrator":
+        case Roles.app_admin:
             return db.scalars(query).all()
-        case "admin":
+        case Roles.admin:
             raise HTTPException(
                 status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented"
             )
@@ -266,9 +267,9 @@ def get_user(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"User not found"
         )
     match actor.role:
-        case "application_administrator":
+        case Roles.app_admin:
             return user
-        case "admin":
+        case Roles.admin:
             if user.company_key == None or user.company_key == actor.company_key:
                 return user
             else:
@@ -276,7 +277,7 @@ def get_user(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=f"User not in your company",
                 )
-        case "custom":
+        case Roles.custom:
             if not can_view_user(actor.id, db):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"

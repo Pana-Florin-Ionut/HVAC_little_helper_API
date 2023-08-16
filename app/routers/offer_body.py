@@ -1,10 +1,6 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List
-import sqlalchemy as salch
 from . import utils
-
-from app.routers.utils import match_user_company
 from app.schemas import companies, offer_body, offers, products
 from .utils import get_offer_details_id, get_product_from_offer
 from sqlalchemy import Subquery, select, update, insert, delete, MappingResult
@@ -13,10 +9,9 @@ from .. import oauth2, table_models_required, table_models_optional, tables
 from ..schemas import offers as offers_schemas
 from ..schemas import products as products_schemas
 from ..schemas import users as users_schemas
-from ..database import engine
 from sqlalchemy.orm import Session
-from sqlalchemy.sql import text
 from ..database import get_db
+from ..roles import Roles
 import logging
 from .. import user_permissions
 
@@ -43,7 +38,7 @@ def get_offer_details_keys(
         .scalar_subquery()
     )
     match user.role:
-        case "application_administrator":
+        case Roles.app_admin:
             try:
                 query = select(OffersBody).filter(OffersBody.offer_id == subquery)
                 response = db.scalars(query).all()
@@ -54,7 +49,7 @@ def get_offer_details_keys(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Offer body not found",
                 )
-        case "admin" | "user":
+        case Roles.admin | Roles.user:
             if user.company_key != company_key:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
@@ -69,7 +64,7 @@ def get_offer_details_keys(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Offer body not found",
                 )
-        case "custom":
+        case Roles.custom:
             if user.company_key != company_key:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
@@ -110,7 +105,7 @@ def get_offer_details(
     query = select(OffersBody).filter(OffersBody.offer_id == offer_id)
     print(f"Query: {query}")
     match user.role:
-        case "application_administrator":
+        case Roles.app_admin:
             try:
                 response = db.scalars(query).all()
                 return response
@@ -121,7 +116,7 @@ def get_offer_details(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Offer body not found",
                 )
-        case "admin" | "user" | "worker":
+        case Roles.admin | Roles.user | Roles.worker:
             try:
                 offer: offers.OffersRetrieve = get_offer_details_id(offer_id, db)
                 if user.company_key != offer.company_key:
@@ -136,7 +131,7 @@ def get_offer_details(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Offer body not found",
                 )
-        case "custom":
+        case Roles.custom:
             offer: offers.OffersRetrieve = get_offer_details_id(offer_id, db)
             if user_permissions.can_view_offer(user.id, db) == False:
                 raise HTTPException(
@@ -170,7 +165,7 @@ def add_product_to_offer(
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     match user.role:
-        case "application_administrator":
+        case Roles.app_admin:
             try:
                 query = (
                     insert(OffersBody)
@@ -193,7 +188,7 @@ def add_product_to_offer(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Internal Server Error",
                 )
-        case "admin" | "user":
+        case Roles.admin | Roles.user:
             offer: offers.OffersRetrieve = get_offer_details_id(offer_id, db)
             if user.company_key != offer.company_key:
                 raise HTTPException(
@@ -221,7 +216,7 @@ def add_product_to_offer(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Internal Server Error",
                 )
-        case "custom":
+        case Roles.custom:
             offer: offers.OffersRetrieve = utils.get_offer_details_id(offer_id, db)
             if user_permissions.can_view_offer(user.id, db):
                 raise HTTPException(
@@ -271,14 +266,14 @@ def delete_offer(
     # print(user.company_key)
     # print(user.role)
     match user.role:
-        case "application_administrator":
+        case Roles.app_admin:
             db.delete(table_models_required.OffersBody, id=product_id)
             db.commit()
             logging.info(f"{datetime.utcnow()} {offer.offer_name}: Table Deleted")
             return {
                 "message": f"Product {product_id} was deleted from {offer.offer_name}"
             }
-        case "admin" | "manager":
+        case Roles.admin | "manager":
             if user.company_key != offer.company_key:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN, detail="Not your offer"
@@ -291,7 +286,7 @@ def delete_offer(
             return {
                 "message": f"Product {product_id} was deleted from {offer.offer_name}"
             }
-        case "custom":
+        case Roles.custom:
             if not user_permissions.can_create_offer(user.id, db):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
@@ -328,8 +323,9 @@ def update_offer(
     )
     # offer: offers.OffersRetrieve = db.get(table_models_required.Offers, product.offer_id)
     match user.role:
-        case "application_administrator":
+        case Roles.app_admin:
             try:
+                # try use the product from above
                 query = (
                     update(table_models_required.OffersBody)
                     .where(table_models_required.OffersBody.id == product_id)
