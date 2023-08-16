@@ -15,7 +15,7 @@ from .utils import (
 )
 import sqlalchemy
 from .. import user_permissions
-from ..roles import Roles
+from ..schemas import users as users_schemas
 
 router = APIRouter(
     prefix="/projects",
@@ -40,7 +40,7 @@ def get_projects(
     offset: int = 0,
 ):
     match user.role:
-        case Roles.app_admin:
+        case users_schemas.Roles.app_admin:
             try:
                 query = select(table_models_required.Projects)
                 # print(f"QUERY: {query}")
@@ -92,7 +92,7 @@ def get_projects(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Project not found",
                 )
-        case Roles.admin | Roles.manager | Roles.user:
+        case users_schemas.Roles.admin | users_schemas.Roles.manager | users_schemas.Roles.user:
             try:
                 query = select(table_models_required.Projects).where(
                     table_models_required.Projects.company_key == user.company_key
@@ -176,11 +176,11 @@ def create_project(
     user: schema_users.UserOut = Depends(oauth2.get_current_user),
 ):
     match user.role:
-        case Roles.app_admin:
+        case users_schemas.Roles.app_admin:
             raise HTTPException(
                 status_code=status.HTTP_303_SEE_OTHER, details="Use URL/projects/admin"
             )
-        case Roles.admin | Roles.manager | Roles.user:
+        case users_schemas.Roles.admin | users_schemas.Roles.manager | users_schemas.Roles.user:
             try:
                 db_project: dict = table_models_required.Projects(
                     created_by=user.id,
@@ -245,7 +245,7 @@ def create_project(
     user: schema_users.UserOut = Depends(oauth2.get_current_user),
 ):
     match user.role:
-        case Roles.app_admin:
+        case users_schemas.Roles.app_admin:
             try:
                 # print(project)
                 db_project = table_models_required.Projects(
@@ -304,7 +304,7 @@ def update_project(
     db: Session = Depends(get_db),
 ):
     match user.role:
-        case Roles.app_admin:
+        case users_schemas.Roles.app_admin:
             try:
                 if not project_exists_key(project_key, company_key, db):
                     raise HTTPException(
@@ -346,7 +346,7 @@ def delete_project(
     user: schema_users.UserOut = Depends(oauth2.get_current_user),
 ):
     match user.role:
-        case Roles.app_admin:
+        case users_schemas.Roles.app_admin:
             if not project_exists_key(project_key, company_key, db):
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -373,7 +373,7 @@ def delete_project(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Error deleting project, please check your inputs",
                 )
-        case Roles.admin:
+        case users_schemas.Roles.admin:
             if not project_exists_key(project_key, db):
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,

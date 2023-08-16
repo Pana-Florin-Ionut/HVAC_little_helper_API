@@ -1,7 +1,20 @@
 from datetime import datetime
 from typing import List, Optional
+from enum import Enum
+from .. import roles
 
 from pydantic import BaseModel, EmailStr
+
+
+class Roles(str, Enum):
+    app_admin = "application_administrator"
+    admin = "admin"
+    manager = "manager"
+    user = "user"
+    guest = "guest"
+    worker = "worker"
+    custom = "custom"
+    test = "test"
 
 
 class User(BaseModel):
@@ -28,7 +41,7 @@ class UserOut(BaseModel):
     last_name: str | None = None
     email: EmailStr
     company_key: str | None = None
-    role: str | None = None
+    role: Roles | None = None
     created: datetime
 
     class Config:
@@ -46,7 +59,7 @@ class UserLogin(BaseModel):
 class UserUpdate(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
-    role: str | None = None
+    role: Roles | None = None
 
     class Config:
         from_attributes = True

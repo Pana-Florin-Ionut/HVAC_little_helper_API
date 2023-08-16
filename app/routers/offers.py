@@ -17,7 +17,7 @@ from ..schemas import users as users_schemas
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import user_permissions
-from ..roles import Roles
+from ..schemas import users as users_schemas
 
 
 router = APIRouter(prefix="/offers", tags=["Offers"])
@@ -42,7 +42,7 @@ async def offers(
 ):
     print(f"User: {user.role}")
     match user.role:
-        case Roles.app_admin:
+        case users_schemas.Roles.app_admin:
             try:
                 query = select(table_models_required.Offers)
                 if company_key != "":
@@ -75,7 +75,7 @@ async def offers(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Bad request",
                 )
-        case Roles.admin:
+        case users_schemas.Roles.admin:
             try:
                 query = select(table_models_required.Offers).where(
                     table_models_required.Offers.company_key == user.company_key
@@ -105,7 +105,7 @@ async def offers(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Bad request",
                 )
-        case Roles.custom:
+        case users_schemas.Roles.custom:
             permissions = user_permissions.can_view_offer(user.id, db)
             match permissions:
                 case True:
@@ -168,7 +168,7 @@ def create_offer_admin(
             detail="Project and company do not match",
         )
     match user.role:
-        case Roles.app_admin:
+        case users_schemas.Roles.app_admin:
             try:
                 new_offer = table_models_required.Offers(
                     created_by=user.id, **offer.model_dump()
@@ -223,7 +223,7 @@ def create_offer(
         )
 
     match user.role:
-        case Roles.admin | Roles.user:
+        case users_schemas.Roles.admin | users_schemas.Roles.user:
             try:
                 new_offer = table_models_required.Offers(
                     created_by=user.id,
@@ -292,7 +292,7 @@ def delete_offer_keys(
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     match user.role:
-        case Roles.app_admin:
+        case users_schemas.Roles.app_admin:
             try:
                 query = (
                     select(table_models_required.Offers)
@@ -323,7 +323,7 @@ def delete_offer_id(
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     match user.role:
-        case Roles.app_admin:
+        case users_schemas.Roles.app_admin:
             try:
                 query = select(table_models_required.Offers).where(
                     table_models_required.Offers.id == offer_id
@@ -352,7 +352,7 @@ def update_offer(
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     match user.role:
-        case Roles.app_admin:
+        case users_schemas.Roles.app_admin:
             try:
                 query = (
                     update(table_models_required.Offers).where(
@@ -374,7 +374,7 @@ def update_offer(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Bad request",
                 )
-        case Roles.admin:
+        case users_schemas.Roles.admin:
             if not match_user_company(user.company_key, offer_id, db):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
