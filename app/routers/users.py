@@ -10,7 +10,6 @@ from ..schemas import users as users_schemas
 from sqlalchemy import select
 import sqlalchemy.exc as exc
 import logging
-from .. import roles
 
 
 router = APIRouter(prefix="/users", tags=["Users"])

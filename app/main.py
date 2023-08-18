@@ -11,7 +11,7 @@ from .schemas import offers as offers_schemas
 from .schemas import users as users_schemas
 
 
-from .routers import companies, offer_body, projects, users, offers, auth
+from .routers import companies, offer_body, projects, users, offers, auth, prices
 from . import table_models_required
 
 
@@ -33,13 +33,12 @@ app.include_router(users.router)
 app.include_router(offer_body.router)
 app.include_router(offers.router)
 app.include_router(auth.router)
+app.include_router(prices.router)
 
 
 @app.get("/")
 async def root(db: Session = Depends(get_db)):
     return {"message": "Hello World"}
-
-
 
 
 @app.get("/offers/{id}")
@@ -79,5 +78,3 @@ async def delete_offer(id: int, db: Session = Depends(get_db)):
     # print(offers_dict)
 
     return {"Offer deleted": id}
-
-

@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, EmailStr
+from app.schemas.users import UserOut
 
 
 class Product(BaseModel):
@@ -33,3 +34,4 @@ class ProductOut(Product):
     offer_id: int
     created: datetime
     created_by: int
+    owner: UserOut

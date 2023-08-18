@@ -40,11 +40,6 @@ def can_view_user(user_id: int, db: Session) -> bool:
 
 
 def can_create_offer(user_id: int, db: Session) -> bool:
-    # create_offer_permission = (
-    #     db.query(table_models_required.Permissions.can_create_offer)
-    #     .filter(table_models_required.Permissions.user_id == user_id)
-    #     .first()
-    # )
     query = select(table_models_required.Permissions.can_create_offer).where(
         table_models_required.Permissions.user_id == user_id
     )

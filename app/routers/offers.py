@@ -266,7 +266,6 @@ def create_offer(
                     detail="An offer with this name already exists",
                 )
         except Exception as e:
-            print(e)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Bad request",
@@ -304,10 +303,9 @@ def delete_offer_keys(
                 db.commit()
 
             except Exception as e:
-                print(e)
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Bad request",
+                    detail=f"Bad request {e}",
                 )
         case _:
             raise HTTPException(
@@ -395,10 +393,9 @@ def update_offer(
                 )
                 return offer
             except Exception as e:
-                print(e)
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Bad request",
+                    detail=f"Bad request {e}",
                 )
         case _:
             raise HTTPException(

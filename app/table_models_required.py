@@ -177,6 +177,8 @@ class OffersBody(Base):
     created_by = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
+    owner = relationship("Users")
+    offer = relationship("Offers")
 
 
 class OfferPrices(Base):

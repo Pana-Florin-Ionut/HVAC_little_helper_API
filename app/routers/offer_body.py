@@ -263,13 +263,13 @@ def delete_offer(
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     offer: offers.OffersRetrieve = get_offer_details_id(offer_id, db)
-    # print(user.company_key)
-    # print(user.role)
     match user.role:
         case users_schemas.Roles.app_admin:
             db.delete(table_models_required.OffersBody, id=product_id)
             db.commit()
-            logging.info(f"{datetime.utcnow()} {offer.offer_name}: Table Deleted")
+            logging.info(
+                f"{datetime.utcnow()} Product {product_id} was deleted from {offer.offer_name}"
+            )
             return {
                 "message": f"Product {product_id} was deleted from {offer.offer_name}"
             }
@@ -316,11 +316,18 @@ def update_offer(
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
-    product: products.ProductOut = (
-        db.query(table_models_required.OffersBody)
-        .filter(table_models_required.OffersBody.id == product_id)
-        .first()
-    )
+    try:
+        product: products.ProductOut = (
+            db.query(table_models_required.OffersBody)
+            .filter(table_models_required.OffersBody.id == product_id)
+            .first()
+        )
+    except Exception as e:
+        logging.error(f"{datetime.utcnow()} {product_id}: Product not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Product with id {product_id} does not exist",
+        )
     # offer: offers.OffersRetrieve = db.get(table_models_required.Offers, product.offer_id)
     match user.role:
         case users_schemas.Roles.app_admin:
@@ -334,8 +341,57 @@ def update_offer(
                 )
                 response = db.scalars(query).first()
                 db.commit()
-                # logging.info(f"{datetime.utcnow()} {offer.offer_name}: Table Updated")
+                db.refresh(product)
+                logging.info(f"{datetime.utcnow()} {product_id}: Product Updated")
                 return response
+
+            except Exception as e:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e)
+
+        case users_schemas.Roles.admin | users_schemas.Roles.manager:
+            offer: offers_schemas.Offers = db.get(Offers, product.offer_id)
+            if user.company_key != offer.company_key:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not your product"
+                )
+            try:
+                query = (
+                    update(table_models_required.OffersBody)
+                    .where(table_models_required.OffersBody.id == product_id)
+                    .values(**product_update.model_dump())
+                    .returning(OffersBody)
+                )
+                response = db.scalars(query).first()
+                db.commit()
+                db.refresh(product)
+                logging.info(f"{datetime.utcnow()} {product_id}: Product Updated")
+                return response
+
+            except Exception as e:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e)
+        case users_schemas.Roles.custom:
+            offer: offers_schemas.Offers = db.get(Offers, product.offer_id)
+            if user.company_key != offer.company_key:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not your product"
+                )
+            if not user_permissions.can_create_offer(user.id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                )
+            try:
+                query = (
+                    update(table_models_required.OffersBody)
+                    .where(table_models_required.OffersBody.id == product_id)
+                    .values(**product_update.model_dump())
+                    .returning(OffersBody)
+                )
+                response = db.scalars(query).first()
+                db.commit()
+                db.refresh(product)
+                logging.info(f"{datetime.utcnow()} {product_id}: Product Updated")
+                return response
+
             except Exception as e:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e)
         case _:

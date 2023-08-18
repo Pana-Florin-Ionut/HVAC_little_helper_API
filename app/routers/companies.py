@@ -22,7 +22,7 @@ router = APIRouter(prefix="/companies", tags=["Companies"])
 )
 def get_companies(
     db: Session = Depends(get_db),
-    user=Depends(oauth2.get_current_user),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
     company_name: str = "",
     company_key: str = "",
     limit: int = 100,
@@ -55,7 +55,7 @@ def get_companies(
                 .where(
                     table_models_required.Companies.company_key.icontains(company_key)
                 )
-                .where(table_models_required.Companies.id != user.company_id)
+                .where(table_models_required.Companies.id != user.company_key)
                 .limit(limit)
                 .offset(skip)
                 .all()
@@ -78,7 +78,7 @@ def create_company(
     match user.role:
         case users_schemas.Roles.app_admin:
             try:
-                company = company.dict()
+                company = company.model_dump()
                 company["is_verified"] = True
                 db_company = table_models_required.Companies(**company)
                 db.add(db_company)
@@ -206,7 +206,7 @@ def update_company(
             update_query = (
                 update(table_models_required.Companies)
                 .where(table_models_required.Companies.id == company_id)
-                .values(**updaded_company.dict())
+                .values(**updaded_company.model_dump())
                 .returning(table_models_required.Companies.id)
             )
             db.execute(update_query)
@@ -224,7 +224,7 @@ def update_company(
             query = (
                 update(table_models_required.Companies)
                 .where(table_models_required.Companies.id == company_id)
-                .values(**updaded_company.dict())
+                .values(**updaded_company.model_dump())
                 .returning(table_models_required.Companies.id)
             )
             db.execute(query)
