@@ -179,6 +179,7 @@ class OffersBody(Base):
     )
     owner = relationship("Users")
     offer = relationship("Offers")
+    price = relationship("OfferPrices")
 
 
 class OfferPrices(Base):

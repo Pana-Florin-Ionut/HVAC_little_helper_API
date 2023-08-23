@@ -14,4 +14,16 @@ class PricesOut(BaseModel):
     offering_company: int
     offer_product_id: int
     price: float
+
     # currency: str #Maybe latter
+    class Config:
+        from_attributes = True
+
+
+class ProductWithPrices(Product):
+    offering_company: int
+    offer_product_id: int
+    price: float
+
+    class Config:
+        from_attributes = True
