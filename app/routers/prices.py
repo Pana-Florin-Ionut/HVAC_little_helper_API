@@ -35,6 +35,34 @@ router = APIRouter(prefix="/prices", tags=["Prices"])
 #     return prices
 
 
+def create_product_with_prices(
+    product: products_schemas.ProductOut, price: prices_schemas.PricesOut
+) -> prices_schemas.ProductWithPrices:
+    product_with_prices = prices_schemas.ProductWithPrices(
+        id=product.id,
+        offer_id=product.offer_id,
+        product_key=product.product_key,
+        product_name=product.product_name,
+        ch_1=product.ch_1,
+        ch_2=product.ch_2,
+        ch_3=product.ch_3,
+        ch_4=product.ch_4,
+        ch_5=product.ch_5,
+        ch_6=product.ch_6,
+        ch_7=product.ch_7,
+        ch_8=product.ch_8,
+        um=product.um,
+        quantity=product.quantity,
+        created_by=product.created_by,
+        created=product.created,
+        owner=product.owner,
+        offering_company=price.offering_company,
+        offer_product_id=price.offer_product_id,
+        price=price.price,
+    )
+    return product_with_prices
+
+
 @router.get(
     "",
     status_code=status.HTTP_200_OK,
@@ -44,36 +72,63 @@ async def get_product_prices(
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
-    query = select(
-        table_models_required.OffersBody,
-        table_models_required.OfferPrices,
-    ).join(table_models_required.OfferPrices)
-    response = db.execute(query).all()
-    final_response = []
-    for result in response:
-        offer_body: products_schemas.ProductOut = result[0]
-        offer_price: prices_schemas.PricesOut = result[1]  # Access the price directly
-        product_with_prices = prices_schemas.ProductWithPrices(
-            id=offer_body.id,
-            offer_id=offer_body.offer_id,
-            product_key=offer_body.product_key,
-            product_name=offer_body.product_name,
-            ch_1=offer_body.ch_1,
-            ch_2=offer_body.ch_2,
-            ch_3=offer_body.ch_3,
-            ch_4=offer_body.ch_4,
-            ch_5=offer_body.ch_5,
-            ch_6=offer_body.ch_6,
-            ch_7=offer_body.ch_7,
-            ch_8=offer_body.ch_8,
-            um=offer_body.um,
-            quantity=offer_body.quantity,
-            created_by=offer_body.created_by,
-            created=offer_body.created,
-            owner=offer_body.owner,
-            offering_company=offer_price.offering_company,
-            offer_product_id=offer_price.offer_product_id,
-            price=offer_price.price,
-        )
-        final_response.append(product_with_prices)
-    return final_response
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            query = select(
+                table_models_required.OffersBody,
+                table_models_required.OfferPrices,
+            ).join(table_models_required.OfferPrices)
+            response = db.execute(query).all()
+            final_response = []
+            for resp in response:
+                product = resp[0]
+                price = resp[1]
+                product_with_prices = create_product_with_prices(product, price)
+                final_response.append(product_with_prices)
+            return final_response
+        case users_schemas.Roles.admin | users_schemas.Roles.user | users_schemas.Roles.manager:
+            query = (
+                select(
+                    table_models_required.OffersBody,
+                    table_models_required.OfferPrices,
+                )
+                .join(table_models_required.OfferPrices)
+                .where(
+                    table_models_required.OffersBody.offer.has(
+                        table_models_required.Offers.company_key == user.company_key
+                    )
+                )
+            )
+            response = db.execute(query).all()
+            final_response = []
+            for resp in response:
+                product = resp[0]
+                price = resp[1]
+                product_with_prices = create_product_with_prices(product, price)
+                final_response.append(product_with_prices)
+            return final_response
+        case users_schemas.Roles.custom:
+            if not user_permissions.can_view_offer(user.id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                )
+            query = (
+                select(
+                    table_models_required.OffersBody,
+                    table_models_required.OfferPrices,
+                )
+                .join(table_models_required.OfferPrices)
+                .where(
+                    table_models_required.OffersBody.offer.has(
+                        table_models_required.Offers.company_key == user.company_key
+                    )
+                )
+            )
+            response = db.execute(query).all()
+            final_response = []
+            for resp in response:
+                product = resp[0]
+                price = resp[1]
+                product_with_prices = create_product_with_prices(product, price)
+                final_response.append(product_with_prices)
+            return final_response
