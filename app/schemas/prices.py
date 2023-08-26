@@ -6,7 +6,7 @@ from app.schemas.companies import CompanyOut
 from app.schemas.projects import ProjectOut, ProjectSingleOut
 
 from app.schemas.users import UserOut
-from .products import Product
+from .products import Product, ProductOut2
 
 
 class PricesOut(BaseModel):
@@ -20,7 +20,9 @@ class PricesOut(BaseModel):
         from_attributes = True
 
 
-class ProductWithPrices(Product):
+class ProductWithPrices(BaseModel):
+    id: int
+    product: ProductOut2
     offering_company: int
     offer_product_id: int
     price: float

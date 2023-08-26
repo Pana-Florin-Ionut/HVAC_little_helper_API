@@ -179,7 +179,6 @@ class OffersBody(Base):
     )
     owner = relationship("Users")
     offer = relationship("Offers")
-    price = relationship("OfferPrices")
 
 
 class OfferPrices(Base):
@@ -189,3 +188,5 @@ class OfferPrices(Base):
     offering_company = Column(Integer, ForeignKey("companies.id"), nullable=False)
     offer_product_id = Column(Integer, ForeignKey("offers_body.id"), nullable=False)
     price = Column(Double, nullable=False)
+
+    product = relationship("OffersBody")

@@ -2,7 +2,9 @@ from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, EmailStr
-from app.schemas.users import UserOut
+from ..schemas.users import UserOut
+
+# from ..schemas.offers import OfferOut
 
 
 class Product(BaseModel):
@@ -28,6 +30,9 @@ class ProductBase(BaseModel):
     id: int | float
     product: Product
 
+    class Config:
+        from_attributes = True
+
 
 class ProductOut(Product):
     id: int
@@ -35,3 +40,26 @@ class ProductOut(Product):
     created: datetime
     created_by: int
     owner: UserOut
+
+    class Config:
+        from_attributes = True
+
+
+class OfferOut(BaseModel):
+    id: int
+    client_key: str | None = None
+    company_key: str
+
+    class Config:
+        from_attributes = True
+
+
+class ProductOut2(Product):
+    id: int
+    offer_id: int
+    created: datetime
+    created_by: int
+    offer: OfferOut
+
+    class Config:
+        from_attributes = True
