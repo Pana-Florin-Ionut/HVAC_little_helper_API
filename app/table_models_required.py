@@ -35,6 +35,7 @@ class Users(Base):
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
+    company = relationship("Companies", backref="companies.company_key")
 
 
 class Companies(Base):
@@ -146,11 +147,14 @@ class Products(Base):
 
 class CompanyConnections(Base):
     __tablename__ = "company_connections"
+    # this permit a supplier to see the offers of the companies they are connected to
     id = Column(Integer, primary_key=True, index=True)
     company_id = Column(
         Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
     )
+    offer_id = Column(Integer, ForeignKey("offers.id"), nullable=False)
     friend_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
+    UniqueConstraint(company_id, friend_id, offer_id, name="unique_company_connections")
 
 
 class OffersBody(Base):

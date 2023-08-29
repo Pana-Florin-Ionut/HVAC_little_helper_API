@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 from enum import Enum
+from ..schemas.companies import Company
 
 from pydantic import BaseModel, EmailStr
 
@@ -42,6 +43,7 @@ class UserOut(BaseModel):
     company_key: str | None = None
     role: Roles | None = None
     created: datetime
+    company: Company | None = None
 
     class Config:
         from_attributes = True

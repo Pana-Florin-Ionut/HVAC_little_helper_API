@@ -16,6 +16,7 @@ from ..database import get_db
 from ..schemas import users as users_schemas
 import logging
 from sqlalchemy.orm import aliased
+from sqlalchemy import exists
 from .. import user_permissions
 
 
@@ -26,7 +27,6 @@ router = APIRouter(prefix="/prices", tags=["Prices"])
     "",
     status_code=status.HTTP_200_OK,
     response_model=list[prices_schemas.ProductWithPrices],
-    # response_model=prices_schemas.PricesOut,
 )
 def get_offer_with_prices(
     db: Session = Depends(get_db),
@@ -36,9 +36,9 @@ def get_offer_with_prices(
     search: str = None,
     product_id: int = None,
 ):
-    # correct way to query according with ChatGPT. I don't get a error like SAWarning: SELECT statement has a cartesian product between FROM element(s) "offers_body" and FROM element "offers".  Apply join condition(s) between each element to resolve.
-    #   response = db.scalars(query).all()
-    # need to make it user friendly
+    """
+    This will return all the prices for the requesting company
+    """
     query = (
         select(
             table_models_required.OfferPrices,
@@ -81,12 +81,72 @@ def get_offer_with_prices(
 
 
 @router.get(
+    "/all",
+    status_code=status.HTTP_200_OK,
+    response_model=list[prices_schemas.ProductWithPrices],
+)
+def get_all_product_2(
+    db: Session = Depends(get_db),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+    limit: int = 10,
+    skip: int = 0,
+    search: str = None,
+):
+    """
+    This will return all the prices for offering company
+    """
+    query = (
+        select(
+            table_models_required.OfferPrices,
+            table_models_required.OffersBody,
+            table_models_required.Offers,
+        )
+        .select_from(table_models_required.OfferPrices)
+        .join(
+            OffersBody,
+            OffersBody.id == table_models_required.OfferPrices.offer_product_id,
+        )
+        .join(Offers, Offers.id == OffersBody.offer_id)
+    )
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            pass
+
+        case users_schemas.Roles.admin | users_schemas.Roles.user | users_schemas.Roles.manager:
+            # permision = check_company_friend()
+            query = query.where(
+                table_models_required.OfferPrices.offering_company == user.company.id
+            )
+
+        case users_schemas.Roles.custom:
+            if not user_permissions.can_view_user(user.id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+                )
+            query = query.where(
+                table_models_required.OfferPrices.offering_company == user.company.id
+            )
+        case _:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Not authorised")
+    if search:
+        query = query.where(
+            table_models_required.OffersBody.product_name.icontains(search)
+        )
+    query = query.limit(limit).offset(skip)
+
+    try:
+        return db.scalars(query).all()
+    except Exception as e:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.get(
     "/{product_id}",
     status_code=status.HTTP_200_OK,
     response_model=list[prices_schemas.ProductWithPrices],
 )
 # if the product has multiple prices, it will return all of them
-def get_product_with_price2(
+def get_product_with_price(
     product_id: int,
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
@@ -94,6 +154,9 @@ def get_product_with_price2(
     # skip: int = 0,
     # limit: int = 100,
 ):
+    """
+    This will allow the Client company that created the offer request to see the price for a particular item from all the
+    """
     query = (
         select(
             table_models_required.OfferPrices,
@@ -204,3 +267,19 @@ def delete_price(
     Funtion need to check if the user was the creator of the price
     """
     pass
+
+
+def check_company_friend(
+    offer_id: int,
+    offer_company_id: int,
+    db: Session = Depends(get_db),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    can_view = (
+        db.query(exists().table_models_required.CompanyConnections)
+        .where(table_models_required.CompanyConnections.friend_id == user.company.id)
+        .where(table_models_required.CompanyConnections.company_id == offer_company_id)
+        .where(table_models_required.CompanyConnections.offer_id == offer_id)
+        .first()
+    )
+    print(can_view)
