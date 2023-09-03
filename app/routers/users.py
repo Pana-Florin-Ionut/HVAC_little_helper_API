@@ -129,7 +129,7 @@ def update_user_by_administrator(
 @router.put(
     "/{id}", status_code=status.HTTP_201_CREATED, response_model=users_schemas.UserOut
 )
-def update_user_by_admin(
+def update_user_by_company_admin(
     id: int,
     update_user: users_schemas.UserUpdate,
     actor_user: users_schemas.UserOut = Depends(oauth2.get_current_user),

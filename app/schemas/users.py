@@ -6,6 +6,16 @@ from ..schemas.companies import Company
 from pydantic import BaseModel, EmailStr
 
 
+class AccessRoles(str, Enum):
+    admin = "admin"
+    manager = "manager"
+    user = "user"
+    guest = "guest"
+    worker = "worker"
+    custom = "custom"
+    test = "test"
+
+
 class Roles(str, Enum):
     app_admin = "application_administrator"
     admin = "admin"
@@ -57,14 +67,24 @@ class UserLogin(BaseModel):
         from_attributes = True
 
 
-class UserUpdate(BaseModel):
+class UserUpdateBase(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
-    role: Roles | None = None
 
     class Config:
         from_attributes = True
 
 
-class UserUpdateAdministrator(UserUpdate):
+class UserUpdate(UserUpdateBase):
+    role: AccessRoles | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class UserUpdateAdministrator(UserUpdateBase):
+    role: Roles | None = None
     company_key: str | None = None
+
+    class Config:
+        from_attributes = True

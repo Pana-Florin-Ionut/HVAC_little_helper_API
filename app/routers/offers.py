@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import user_permissions
 from ..schemas import users as users_schemas
+from unittest import result
 
 
 router = APIRouter(prefix="/offers", tags=["Offers"])
@@ -40,109 +41,44 @@ async def offers(
     limit: int = 100,
     skip: int = 0,
 ):
-    print(f"User: {user.role}")
+    query = select(table_models_required.Offers)
     match user.role:
         case users_schemas.Roles.app_admin:
-            try:
-                query = select(table_models_required.Offers)
-                if company_key != "":
-                    query = query.where(
-                        table_models_required.Offers.company_key == company_key
-                    )
-                if project_key != "":
-                    query = query.where(
-                        table_models_required.Offers.project_key == project_key
-                    )
-                if offer_key != "":
-                    query = query.where(
-                        table_models_required.Offers.offer_key == offer_key
-                    )
-                if search != "":
-                    query = query.where(
-                        table_models_required.Offers.offer_name.contains(search)
-                    )
-                if created_by > 0:
-                    query = query.where(
-                        table_models_required.Offers.created_by == created_by
-                    )
-                query = query.limit(limit).offset(skip)
-                # print(f"Query: {query}")
-                return db.scalars(query).all()
-
-            except Exception as e:
-                print(e)
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Bad request",
-                )
+            pass
         case users_schemas.Roles.admin:
-            try:
-                query = select(table_models_required.Offers).where(
-                    table_models_required.Offers.company_key == user.company_key
-                )
-                if company_key != "":
-                    query = query.where(
-                        table_models_required.Offers.company_key == company_key
-                    )
-                if offer_key != "":
-                    query = query.where(
-                        table_models_required.Offers.offer_key == offer_key
-                    )
-                if search != "":
-                    query = query.where(
-                        table_models_required.Offers.offer_name.contains(search)
-                    )
-                if created_by > 0:
-                    query = query.where(
-                        table_models_required.Offers.created_by == created_by
-                    )
-                query = query.limit(limit).offset(skip)
-                return db.scalars(query).all()
-
-            except Exception as e:
-                print(e)
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Bad request",
-                )
+            query = query.where(
+                table_models_required.Offers.company_key == user.company_key
+            )
         case users_schemas.Roles.custom:
-            permissions = user_permissions.can_view_offer(user.id, db)
-            match permissions:
-                case True:
-                    try:
-                        query = select(table_models_required.Offers).where(
-                            table_models_required.Offers.company_key == user.company_key
-                        )
-                        if company_key != "":
-                            query = query.where(
-                                table_models_required.Offers.company_key == company_key
-                            )
-                        if offer_key != "":
-                            query = query.where(
-                                table_models_required.Offers.offer_key == offer_key
-                            )
-                        if search != "":
-                            query = query.where(
-                                table_models_required.Offers.offer_name.contains(search)
-                            )
-                        if created_by > 0:
-                            query = query.where(
-                                table_models_required.Offers.created_by == created_by
-                            )
-                        query = query.limit(limit).offset(skip)
-                        response = db.scalars(query).all()
-                        return response
-                    except Exception as e:
-                        print(e)
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            detail=f"Bad request",
-                        )
-                case _:
-                    raise HTTPException(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail="Not authorized to perform this action",
-                    )
+            can_view_offers = user_permissions.can_view_offer(user.id, db)
+            if not can_view_offers:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                )
+            query = query.where(
+                table_models_required.Offers.company_key == user.company_key
+            )
+
+    if company_key != "":
+        query = query.where(table_models_required.Offers.company_key == company_key)
+    if project_key != "":
+        query = query.where(table_models_required.Offers.project_key == project_key)
+    if offer_key != "":
+        query = query.where(table_models_required.Offers.offer_key == offer_key)
+    if search != "":
+        query = query.where(table_models_required.Offers.offer_name.contains(search))
+    if created_by > 0:
+        query = query.where(table_models_required.Offers.created_by == created_by)
+    query = query.limit(limit).offset(skip)
+    # print(f"Query: {query}")
+    try:
+        result = db.scalars(query).all()
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}",
+        )
 
 
 @router.post(
@@ -279,41 +215,6 @@ def create_offer(
         )
 
 
-# create delete offer
-@router.delete(
-    "/{company_key}/{project_key}/{offer_key}", status_code=status.HTTP_204_NO_CONTENT
-)
-def delete_offer_keys(
-    offer_key: str,
-    company_key: str,
-    project_key: str,
-    db: Session = Depends(get_db),
-    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
-):
-    match user.role:
-        case users_schemas.Roles.app_admin:
-            try:
-                query = (
-                    select(table_models_required.Offers)
-                    .where(table_models_required.Offers.offer_key == offer_key)
-                    .filter(table_models_required.Offers.company_key == company_key)
-                    .filter(table_models_required.Offers.project_key == project_key)
-                )
-                db.delete(db.scalars(query).first())
-                db.commit()
-
-            except Exception as e:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Bad request {e}",
-                )
-        case _:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authorized to perform this action",
-            )
-
-
 @router.delete("/{offer_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_offer_id(
     offer_id: int,
@@ -349,56 +250,171 @@ def update_offer(
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
+    current_offer: offer_schemas.OffersRetrieve = db.get(
+        table_models_required.Offers, offer_id
+    )
+    if not current_offer:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Offer with this id does not exist",
+        )
     match user.role:
         case users_schemas.Roles.app_admin:
-            try:
-                query = (
-                    update(table_models_required.Offers).where(
-                        table_models_required.Offers.id == offer_id
-                    )
-                ).values(**offer.model_dump())
-                db.execute(query)
-                db.commit()
-                offer = (
-                    db.query(table_models_required.Offers)
-                    .filter(table_models_required.Offers.id == offer_id)
-                    .first()
-                )
-                return offer
-
-            except Exception as e:
-                print(e)
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Bad request",
-                )
-        case users_schemas.Roles.admin:
+            pass
+        case users_schemas.Roles.admin | users_schemas.Roles.manager | users_schemas.Roles.user:
             if not match_user_company(user.company_key, offer_id, db):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="This offer is not from your company",
                 )
-            try:
-                query = (
-                    update(table_models_required.Offers)
-                    .where(table_models_required.Offers.id == offer_id)
-                    .values(**offer.model_dump())
-                )
-                db.execute(query)
-                db.commit()
-                offer = (
-                    db.query(table_models_required.Offers)
-                    .filter(table_models_required.Offers.id == offer_id)
-                    .first()
-                )
-                return offer
-            except Exception as e:
+        case users_schemas.Roles.custom:
+            if not user_permissions.can_view_offer(
+                user.id, db
+            ) or not match_user_company(user.company_key, offer_id, db):
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Bad request {e}",
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Not authorized to perform this action",
                 )
         case _:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Not authorized to perform this action",
             )
+    try:
+        # updating the values of the current_offer with the values received
+        {setattr(current_offer, k, v) for k, v in offer.model_dump().items()}
+        db.commit()
+        db.refresh(current_offer)
+        return current_offer
+    except Exception as e:
+        print(e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Bad request",
+        )
+
+
+# here should we have a group/filter/limit/sort/search/etc.
+@router.get(
+    "/clients",
+    status_code=status.HTTP_200_OK,
+    response_model=List[offer_schemas.OffersSellersOut],
+)
+async def offers(
+    db: Session = Depends(get_db),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+    company_key: str = "",
+    project_key: str = "",
+    offer_key: str = "",
+    search="",
+    limit: int = 100,
+    skip: int = 0,
+):
+    query = db.query(table_models_required.Offers).join(
+        table_models_required.CompanyConnections,
+        table_models_required.CompanyConnections.offer_id
+        == table_models_required.Offers.id,
+    )
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            pass
+        case users_schemas.Roles.admin | users_schemas.Roles.manager | users_schemas.Roles.user:
+            query = query.filter(
+                table_models_required.CompanyConnections.friend_id == user.company.id,
+            )
+        case users_schemas.Roles.custom:
+            can_view_offers = user_permissions.can_view_offer(user.id, db)
+            if not can_view_offers:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                )
+            query = query.filter(
+                table_models_required.CompanyConnections.friend_id == user.company.id,
+            )
+
+    if company_key != "":
+        query = query.where(table_models_required.Offers.company_key == company_key)
+    if project_key != "":
+        query = query.where(table_models_required.Offers.project_key == project_key)
+    if offer_key != "":
+        query = query.where(table_models_required.Offers.offer_key == offer_key)
+    if search != "":
+        query = query.where(table_models_required.Offers.offer_name.contains(search))
+    query = query.limit(limit).offset(skip)
+    # print(f"Query: {query}")
+    try:
+        result = db.scalars(query).all()
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}",
+        )
+
+
+# here should we have a group/filter/limit/sort/search/etc.
+@router.get(
+    "/clients/{offer_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=List[offer_schemas.OffersSellersOut],
+)
+async def offers(
+    offer_id: int,
+    db: Session = Depends(get_db),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    query = (
+        db.query(table_models_required.Offers)
+        .join(
+            table_models_required.CompanyConnections,
+            table_models_required.CompanyConnections.offer_id
+            == table_models_required.Offers.id,
+        )
+        .where(table_models_required.Offers.id == offer_id)
+    )
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            pass
+        case users_schemas.Roles.admin | users_schemas.Roles.manager | users_schemas.Roles.user:
+            query = query.filter(
+                table_models_required.CompanyConnections.friend_id == user.company.id,
+            )
+        case users_schemas.Roles.custom:
+            can_view_offers = user_permissions.can_view_offer(user.id, db)
+            if not can_view_offers:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                )
+            query = query.filter(
+                table_models_required.CompanyConnections.friend_id == user.company.id,
+            )
+    try:
+        result = db.scalars(query).all()
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}",
+        )
+
+
+@router.put("/update/{offer_id}", response_model=offer_schemas.OffersRetrieve)
+def update_offer_2(
+    offer_id: int,
+    offer: offer_schemas.OffersUpdate,
+    db: Session = Depends(get_db),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    current_offer: offer_schemas.OffersRetrieve = db.get(
+        table_models_required.Offers, offer_id
+    )
+    if not offer:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Offer with this id does not exist",
+        )
+    # updating the values of the current_offer with the values received
+    {setattr(current_offer, k, v) for k, v in offer.model_dump().items()}
+    db.commit()
+    db.refresh(current_offer)
+    return current_offer

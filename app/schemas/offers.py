@@ -2,8 +2,8 @@ from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, EmailStr
-from app.schemas.companies import CompanyOut
-from app.schemas.projects import ProjectOut, ProjectSingleOut
+from app.schemas.companies import CompanyOut, CompanyCreate
+from app.schemas.projects import ProjectOut, ProjectSingleOut, ProjectSellersOut
 
 from app.schemas.users import UserOut
 from .products import Product
@@ -26,6 +26,20 @@ class Offers(BaseModel):
     is_finalized: bool
     timestamp: datetime
     offer_body: List[Offer | None]
+
+    class Config:
+        from_attributes = True
+
+
+class OffersSellersOut(BaseModel):
+    id: int
+    client_key: str | None = None
+    company_key: str
+    project_key: str
+    offer_name: str
+    offer_key: str
+    company: CompanyCreate
+    project: ProjectSellersOut
 
     class Config:
         from_attributes = True

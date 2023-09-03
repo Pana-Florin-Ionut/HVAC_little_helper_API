@@ -41,6 +41,16 @@ class ProjectCreateUser(BaseModel):
         from_attributes = True
 
 
+class ProjectSellersOut(BaseModel):
+    id: int
+    company_key: str
+    project_name: str
+    project_key: str
+
+    class Config:
+        from_attributes = True
+
+
 class ProjectOut(BaseModel):
     id: int
     company_key: str

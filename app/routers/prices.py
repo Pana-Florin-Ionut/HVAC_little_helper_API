@@ -37,7 +37,7 @@ def get_offer_with_prices(
     product_id: int = None,
 ):
     """
-    This will return all the prices for the requesting company
+    This will return all the prices for the requesting company - buyer
     """
     query = (
         select(
@@ -81,11 +81,11 @@ def get_offer_with_prices(
 
 
 @router.get(
-    "/all",
+    "/clients",
     status_code=status.HTTP_200_OK,
     response_model=list[prices_schemas.ProductWithPrices],
 )
-def get_all_product_2(
+def get_all_product_from_clients(
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
     limit: int = 10,
