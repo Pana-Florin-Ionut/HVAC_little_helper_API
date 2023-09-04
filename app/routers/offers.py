@@ -256,7 +256,7 @@ def update_offer(
     if not current_offer:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Offer with this id does not exist",
+            detail="Offer with id {offer_id} does not exist",
         )
     match user.role:
         case users_schemas.Roles.app_admin:
@@ -287,7 +287,6 @@ def update_offer(
         db.refresh(current_offer)
         return current_offer
     except Exception as e:
-        print(e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Bad request",
@@ -396,25 +395,3 @@ async def offers(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}",
         )
-
-
-@router.put("/update/{offer_id}", response_model=offer_schemas.OffersRetrieve)
-def update_offer_2(
-    offer_id: int,
-    offer: offer_schemas.OffersUpdate,
-    db: Session = Depends(get_db),
-    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
-):
-    current_offer: offer_schemas.OffersRetrieve = db.get(
-        table_models_required.Offers, offer_id
-    )
-    if not offer:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Offer with this id does not exist",
-        )
-    # updating the values of the current_offer with the values received
-    {setattr(current_offer, k, v) for k, v in offer.model_dump().items()}
-    db.commit()
-    db.refresh(current_offer)
-    return current_offer

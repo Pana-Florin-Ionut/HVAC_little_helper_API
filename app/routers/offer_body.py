@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from . import utils
 from app.schemas import companies, offer_body, offers, products
@@ -19,78 +20,109 @@ router = APIRouter(prefix="/offer", tags=["Offer Body"])
 
 
 @router.get(
-    "/{company_key}/{project_key}/{offer_key}",
-    response_model=list[products_schemas.ProductOut],
+    "/client/{offer_id}",
+    response_model=List[products.ProductOut],
     status_code=status.HTTP_200_OK,
 )
-def get_offer_details_keys(
-    company_key: str,
-    project_key: str,
-    offer_key: str,
+def get_offer_client(
+    offer_id: int,
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
-    subquery = (
-        select(Offers.id)
-        .where(Offers.company_key == company_key)
-        .where(Offers.project_key == project_key)
-        .where(Offers.offer_key == offer_key)
-        .scalar_subquery()
+    query = (
+        db.query(table_models_required.OffersBody)
+        .join(
+            table_models_required.CompanyConnections,
+            table_models_required.CompanyConnections.offer_id
+            == table_models_required.OffersBody.offer_id,
+        )
+        .where(table_models_required.OffersBody.offer_id == offer_id)
     )
     match user.role:
         case users_schemas.Roles.app_admin:
-            try:
-                query = select(OffersBody).filter(OffersBody.offer_id == subquery)
-                response = db.scalars(query).all()
-                return response
-            except Exception as e:
-                logging.error(e)
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Offer body not found",
-                )
-        case users_schemas.Roles.admin | users_schemas.Roles.user:
-            if user.company_key != company_key:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
-                )
-            try:
-                query = select(OffersBody).filter(OffersBody.offer_id == subquery)
-                response = db.scalars(query).all()
-                return response
-            except Exception as e:
-                logging.error(e)
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Offer body not found",
-                )
-        case users_schemas.Roles.custom:
-            if user.company_key != company_key:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
-                )
-            if user_permissions.can_view_offer(user.id, db) == False:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
-                )
-            try:
-                query = select(OffersBody).filter(OffersBody.offer_id == subquery)
-                response = db.scalars(query).all()
-                return response
-            except Exception as e:
-                logging.error(e)
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Offer body not found",
-                )
-        case _:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+            pass
+        case users_schemas.Roles.admin | users_schemas.Roles.user | users_schemas.Roles.worker | users_schemas.Roles.manager:
+            query = query.where(
+                table_models_required.CompanyConnections.friend_id == user.company.id,
             )
+        case users_schemas.Roles.custom:
+            if not user_permissions.can_view_offer(user.id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                )
+            query = query.filter(
+                table_models_required.CompanyConnections.friend_id == user.company.id,
+            )
+        case _:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Not authorised")
+    try:
+        prod = db.scalars(query).all()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}",
+        )
+    if not prod:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Offer does not exists or it does not have any products",
+        )
+    return prod
 
 
 @router.get(
-    "/{offer_id}",
+    "/client/product/{product_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=products.ProductOut,
+)
+def get_client_product(
+    product_id: int,
+    db: Session = Depends(get_db),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    """
+    This endpoint should be used only by sellers. If the owner of the product will access  this, it will cannot see it
+    it should use instead get method with the route: /{product_id}"
+    """
+    query = (
+        db.query(table_models_required.OffersBody)
+        .join(
+            table_models_required.CompanyConnections,
+            table_models_required.CompanyConnections.offer_id
+            == table_models_required.OffersBody.offer_id,
+        )
+        .where(table_models_required.OffersBody.id == product_id)
+    )
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            pass
+        case users_schemas.Roles.admin | users_schemas.Roles.user | users_schemas.Roles.worker | users_schemas.Roles.manager:
+            query = query.where(
+                table_models_required.CompanyConnections.friend_id == user.company.id,
+            )
+        case users_schemas.Roles.custom:
+            if not user_permissions.can_view_offer(user.id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                )
+            query = query.filter(
+                table_models_required.CompanyConnections.friend_id == user.company.id,
+            )
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not authorised"
+            )
+    response = db.scalars(query).first()
+    if not response:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Product with id {product_id} not found or you don't have the permission to view it",
+        )
+    return response
+
+
+@router.get(
+    "/all/{offer_id}",
     status_code=status.HTTP_200_OK,
     response_model=list[products.ProductOut],
 )
@@ -103,7 +135,14 @@ def get_offer_details(
     Get a list of products from same offer (offer_id)
     """
     query = select(OffersBody).filter(OffersBody.offer_id == offer_id)
-    print(f"Query: {query}")
+    products_from_offers = db.scalars(query).all()
+    if not products_from_offers:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Offer does not exists or it does not have any products",
+        )
+    # print(f"Query: {query}")
+    # need redone, too long
     match user.role:
         case users_schemas.Roles.app_admin:
             try:
@@ -129,7 +168,7 @@ def get_offer_details(
                 logging.error(e)
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Offer body not found",
+                    detail="Offer body not found 3",
                 )
         case users_schemas.Roles.custom:
             offer: offers.OffersRetrieve = get_offer_details_id(offer_id, db)
@@ -149,8 +188,50 @@ def get_offer_details(
                 logging.error(e)
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Offer body not found",
+                    detail="Offer body not found 2",
                 )
+
+
+@router.get(
+    "/{product_id}",
+    response_model=products.ProductOut2,
+    status_code=status.HTTP_200_OK,
+)
+def get_product_from_offer(
+    product_id: int,
+    db: Session = Depends(get_db),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    query = select(table_models_required.OffersBody).where(
+        table_models_required.OffersBody.id == product_id
+    )
+    product: products.ProductOut2 = db.scalars(query).first()
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Product not found"
+        )
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            pass
+        case users_schemas.Roles.admin | users_schemas.Roles.user | users_schemas.Roles.manager | users_schemas.Roles.user:
+            if user.company_key != product.offer.company_key:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                )
+        case users_schemas.Roles.custom:
+            if user.company_key != product.offer.company_key:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                )
+            if user_permissions.can_view_offer(user.id, db) == False:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                )
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+            )
+    return product
 
 
 @router.post(
@@ -164,6 +245,7 @@ def add_product_to_offer(
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
+    # need redone, too long
     match user.role:
         case users_schemas.Roles.app_admin:
             try:
@@ -263,6 +345,7 @@ def delete_offer(
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     offer: offers.OffersRetrieve = get_offer_details_id(offer_id, db)
+    # need redone, too long
     match user.role:
         case users_schemas.Roles.app_admin:
             db.delete(table_models_required.OffersBody, id=product_id)
@@ -316,6 +399,7 @@ def update_offer(
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
+    # need redone, to long
     try:
         product: products.ProductOut = (
             db.query(table_models_required.OffersBody)

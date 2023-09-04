@@ -191,3 +191,78 @@
 #                 product_with_prices = create_product_with_prices(product, price)
 #                 final_response.append(product_with_prices)
 #             return final_response
+
+
+# subquery
+
+# @router.get(
+#     "/{company_key}/{project_key}/{offer_key}",
+#     response_model=list[products_schemas.ProductOut],
+#     status_code=status.HTTP_200_OK,
+# )
+# def get_offer_details_keys(
+#     company_key: str,
+#     project_key: str,
+#     offer_key: str,
+#     db: Session = Depends(get_db),
+#     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+# ):
+#     subquery = (
+#         select(Offers.id)
+#         .where(Offers.company_key == company_key)
+#         .where(Offers.project_key == project_key)
+#         .where(Offers.offer_key == offer_key)
+#         .scalar_subquery()
+#     )
+#     match user.role:
+#         case users_schemas.Roles.app_admin:
+#             try:
+#                 query = select(OffersBody).filter(OffersBody.offer_id == subquery)
+#                 response = db.scalars(query).all()
+#                 return response
+#             except Exception as e:
+#                 logging.error(e)
+#                 raise HTTPException(
+#                     status_code=status.HTTP_404_NOT_FOUND,
+#                     detail="Offer body not found",
+#                 )
+#         case users_schemas.Roles.admin | users_schemas.Roles.user:
+#             if user.company_key != company_key:
+#                 raise HTTPException(
+#                     status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+#                 )
+#             try:
+#                 query = select(OffersBody).filter(OffersBody.offer_id == subquery)
+#                 response = db.scalars(query).all()
+#                 return response
+#             except Exception as e:
+#                 logging.error(e)
+#                 raise HTTPException(
+#                     status_code=status.HTTP_404_NOT_FOUND,
+#                     detail="Offer body not found",
+#                 )
+#         case users_schemas.Roles.custom:
+#             if user.company_key != company_key:
+#                 raise HTTPException(
+#                     status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+#                 )
+#             if user_permissions.can_view_offer(user.id, db) == False:
+#                 raise HTTPException(
+#                     status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+#                 )
+#             try:
+#                 query = select(OffersBody).filter(OffersBody.offer_id == subquery)
+#                 response = db.scalars(query).all()
+#                 return response
+#             except Exception as e:
+#                 logging.error(e)
+#                 raise HTTPException(
+#                     status_code=status.HTTP_404_NOT_FOUND,
+#                     detail="Offer body not found",
+#                 )
+#         case _:
+#             raise HTTPException(
+#                 status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+#             )
+
+# Code snippet from c:\Users\panaf\Programming\HVAC_little_helper_API\app\routers\offer_body.py
