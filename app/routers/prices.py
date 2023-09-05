@@ -24,7 +24,7 @@ router = APIRouter(prefix="/prices", tags=["Prices"])
 
 
 @router.get(
-    "",
+    "/all",
     status_code=status.HTTP_200_OK,
     response_model=list[prices_schemas.ProductWithPrices],
 )
@@ -81,6 +81,54 @@ def get_offer_with_prices(
 
 
 @router.get(
+    "/one/{offer_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=list[prices_schemas.ProductWithPrices],
+)
+def get_offer_with_prices(
+    db: Session = Depends(get_db),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+    offer_id: int = None,
+):
+    """
+    This will return all the prices for one offer
+    """
+    query = (
+        select(
+            table_models_required.OfferPrices,
+            table_models_required.OffersBody,
+            table_models_required.Offers,
+        )
+        .select_from(table_models_required.OfferPrices)
+        .join(
+            OffersBody,
+            OffersBody.id == table_models_required.OfferPrices.offer_product_id,
+        )
+        .join(Offers, Offers.id == OffersBody.offer_id)
+        .where(Offers.id == offer_id)
+    )
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            pass
+        case users_schemas.Roles.admin | users_schemas.Roles.user | users_schemas.Roles.manager:
+            query = query.where(
+                table_models_required.OfferPrices.product.has(
+                    table_models_required.Offers.company_key == user.company_key
+                )
+            )
+        case _:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Not authorised")
+    try:
+        result = db.scalars(query).all()
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal Error, {e}",
+        )
+
+
+@router.get(
     "/clients",
     status_code=status.HTTP_200_OK,
     response_model=list[prices_schemas.ProductWithPrices],
@@ -107,6 +155,68 @@ def get_all_product_from_clients(
             OffersBody.id == table_models_required.OfferPrices.offer_product_id,
         )
         .join(Offers, Offers.id == OffersBody.offer_id)
+    )
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            pass
+
+        case users_schemas.Roles.admin | users_schemas.Roles.user | users_schemas.Roles.manager:
+            # permision = check_company_friend()
+            query = query.where(
+                table_models_required.OfferPrices.offering_company == user.company.id
+            )
+
+        case users_schemas.Roles.custom:
+            if not user_permissions.can_view_user(user.id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+                )
+            query = query.where(
+                table_models_required.OfferPrices.offering_company == user.company.id
+            )
+        case _:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Not authorised")
+    if search:
+        query = query.where(
+            table_models_required.OffersBody.product_name.icontains(search)
+        )
+    query = query.limit(limit).offset(skip)
+
+    try:
+        return db.scalars(query).all()
+    except Exception as e:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.get(
+    "/clients/{offer_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=list[prices_schemas.ProductWithPrices],
+)
+def get_one_offer_from_clients(
+    offer_id: int,
+    db: Session = Depends(get_db),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+    limit: int = 10,
+    skip: int = 0,
+    search: str = None,
+):
+    """
+    This will return all the prices for offering company
+    """
+    query = (
+        select(
+            table_models_required.OfferPrices,
+            table_models_required.OffersBody,
+            table_models_required.Offers,
+        )
+        .select_from(table_models_required.OfferPrices)
+        .join(
+            OffersBody,
+            OffersBody.id == table_models_required.OfferPrices.offer_product_id,
+        )
+        .join(Offers, Offers.id == OffersBody.offer_id)
+        .where(table_models_required.Offers.id == offer_id)
     )
     match user.role:
         case users_schemas.Roles.app_admin:
@@ -234,7 +344,16 @@ def add_price(
         )
         .join(Offers, Offers.id == OffersBody.offer_id)
     ).where(table_models_required.OffersBody.id == product_id)
-    product = db.scalars(query).first()
+    product: prices_schemas.ProductWithPrices = db.scalars(query).first()
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product with the id does not exist or you don't have permisions to view it",
+        )
+    if product.price:
+        raise HTTPException(
+            status.HTTP_303_SEE_OTHER, detail="Price already exists, try updating it"
+        )
     print(product)
 
     return product

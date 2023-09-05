@@ -136,6 +136,7 @@ def get_offer_details(
     """
     query = select(OffersBody).filter(OffersBody.offer_id == offer_id)
     products_from_offers = db.scalars(query).all()
+    print(products_from_offers)
     if not products_from_offers:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -168,7 +169,7 @@ def get_offer_details(
                 logging.error(e)
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Offer body not found 3",
+                    detail="Offer body not found or you don't have permission to see it",
                 )
         case users_schemas.Roles.custom:
             offer: offers.OffersRetrieve = get_offer_details_id(offer_id, db)
@@ -193,7 +194,7 @@ def get_offer_details(
 
 
 @router.get(
-    "/{product_id}",
+    "/product/{product_id}",
     response_model=products.ProductOut2,
     status_code=status.HTTP_200_OK,
 )
