@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from . import utils
 from app.schemas import companies, offer_body, offers, products
@@ -62,6 +63,7 @@ def get_offer_with_prices(
                 )
             )
         case _:
+            logging.info(f"User {user.id} is not authorised to view prices")
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Not authorised")
     if search is not None:
         query = query.where(
@@ -199,7 +201,7 @@ def get_one_offer_from_clients(
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
     limit: int = 10,
     skip: int = 0,
-    search: str = None,
+    # search: str = None,
 ):
     """
     This will return all the prices for offering company
@@ -238,16 +240,67 @@ def get_one_offer_from_clients(
             )
         case _:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Not authorised")
-    if search:
-        query = query.where(
-            table_models_required.OffersBody.product_name.icontains(search)
-        )
+    # if search:
+    #     query = query.where(
+    #         table_models_required.OffersBody.product_name.icontains(search)
+    #     )
     query = query.limit(limit).offset(skip)
 
     try:
         return db.scalars(query).all()
     except Exception as e:
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.get(
+    "/clients/p/{product_id}",
+    response_model=prices_schemas.ProductWithPrices,
+    status_code=status.HTTP_200_OK,
+)
+def get_one_product_from_clients(
+    product_id: int,
+    db: Session = Depends(get_db),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    """
+    This will return a product with prices
+    Note: the product_id is the id from OffersBody, returned ID is from OffersPrices
+    """
+    print(product_id)
+    query = (
+        select(
+            table_models_required.OfferPrices,
+            table_models_required.OffersBody,
+            # table_models_required.Offers,
+        )
+        .select_from(table_models_required.OfferPrices)
+        .join(
+            OffersBody,
+            OffersBody.id == table_models_required.OfferPrices.offer_product_id,
+        )
+        .where(table_models_required.OffersBody.id == product_id)
+        # .join(Offers, Offers.id == OffersBody.offer_id)
+    )
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            pass
+
+        case users_schemas.Roles.admin | users_schemas.Roles.user | users_schemas.Roles.manager:
+            query = query.where(
+                table_models_required.OfferPrices.offering_company == user.company.id
+            )
+
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authorised"
+            )
+    response: Optional[prices_schemas.ProductWithPrices] = db.scalars(query).first()
+    if not response:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Product with id {product_id} not found or you don't have the permission to view it",
+        )
+    return response
 
 
 @router.get(
