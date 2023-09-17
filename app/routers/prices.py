@@ -253,7 +253,7 @@ def get_one_offer_from_clients(
 
 
 @router.get(
-    "/clients/p/{product_id}",
+    "/clients/product/{product_id}",
     response_model=prices_schemas.ProductWithPrices,
     status_code=status.HTTP_200_OK,
 )
@@ -266,7 +266,7 @@ def get_one_product_from_clients(
     This will return a product with prices
     Note: the product_id is the id from OffersBody, returned ID is from OffersPrices
     """
-    print(product_id)
+    # print(product_id)
     query = (
         select(
             table_models_required.OfferPrices,
@@ -313,12 +313,10 @@ def get_product_with_price(
     product_id: int,
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
-    # query = query.limit(limit).offset(skip) should not have skip and offset. Maybe if there are too many prices for a single product we might implement this
-    # skip: int = 0,
-    # limit: int = 100,
 ):
     """
-    This will allow the Client company that created the offer request to see the price for a particular item from all the
+    This will allow the Client company that created the offer request to see the price for a particular item from all the Sellers that gave a price
+    Returns same product with prices from different companies
     """
     query = (
         select(
@@ -372,19 +370,61 @@ def get_product_with_price(
 
 @router.post(
     "/{product_id}",
-    # response_model=prices_schemas.ProductWithPrices,
+    response_model=prices_schemas.ProductWithPrices,
     status_code=status.HTTP_201_CREATED,
 )
 def add_price(
     product_id: int,
-    # price_for_product: prices_schemas.PricesOut,
+    price: prices_schemas.ProductWithPricesIn,
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     """
     Function need to check if the user that is making this post has access to the Product, or is from a friend company
     """
+    # Need a utility function to check if product exist and if the product has a price to make it nicer
     query = (
+        select(table_models_required.OffersBody)
+        .where(table_models_required.OffersBody.id == product_id)
+        .join(table_models_required.Offers, Offers.id == OffersBody.offer_id)
+    )
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            raise HTTPException(
+                status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented"
+            )
+        case users_schemas.Roles.admin | users_schemas.Roles.user | users_schemas.Roles.manager:
+            query = query.where(
+                table_models_required.Offers.company_key == user.company_key
+            )
+        case users_schemas.Roles.custom:
+            if not user_permissions.can_view_offer(user.id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                )
+            query = query.where(
+                table_models_required.Offers.company_key == user.company_key
+            )
+        case _:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Not authorised")
+
+    # check if the product exists
+    try:
+        product: products.ProductOut2 = db.scalars(query).first()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal Error, {e}",
+        )
+
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Product with the id {product_id} does not exist or you don't have permisions to view it",
+        )
+
+    # check if the price already exist
+    second_query = (
         select(
             table_models_required.OfferPrices,
             table_models_required.OffersBody,
@@ -397,19 +437,32 @@ def add_price(
         )
         .join(Offers, Offers.id == OffersBody.offer_id)
     ).where(table_models_required.OffersBody.id == product_id)
-    product: prices_schemas.ProductWithPrices = db.scalars(query).first()
-    if not product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Product with the id does not exist or you don't have permisions to view it",
-        )
-    if product.price:
-        raise HTTPException(
-            status.HTTP_303_SEE_OTHER, detail="Price already exists, try updating it"
-        )
-    print(product)
 
-    return product
+    product_with_price: prices_schemas.ProductWithPrices = db.scalars(
+        second_query
+    ).first()
+    if product_with_price:
+        raise HTTPException(
+            status.HTTP_303_SEE_OTHER,
+            detail="Price already exists, try updating it",
+        )
+    product_with_price: prices_schemas.ProductWithPrices
+    third_query = (
+        insert(table_models_required.OfferPrices)
+        .values(
+            **price.model_dump(),
+            offer_product_id=product_id,
+            offering_company=user.company.id,
+        )
+        .returning(table_models_required.OfferPrices)
+    )
+    response = db.scalars(third_query).first()
+    # print(response.product)
+    db.commit()
+    # db.refresh(product_with_price)
+    # print(product_with_price)
+
+    return response
 
 
 @router.put(

@@ -29,3 +29,14 @@ class ProductWithPrices(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ProductWithPricesIn(BaseModel):
+    price: float
+
+    class Config:
+        from_attributes = True
+
+
+class ProductWithPricesInAdmin(ProductWithPricesIn):
+    offering_company: int
