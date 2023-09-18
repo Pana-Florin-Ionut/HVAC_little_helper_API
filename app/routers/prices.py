@@ -3,7 +3,12 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from . import utils
 from app.schemas import companies, offer_body, offers, products
-from .utils import get_offer_details_id, get_product_from_offer
+from .utils import (
+    check_product_exist_for_user,
+    check_product_with_price_exist,
+    get_offer_details_id,
+    get_product_from_offer,
+)
 from sqlalchemy import Subquery, select, text, update, insert, delete, MappingResult
 from sqlalchemy.orm import with_parent
 from ..table_models_required import Offers, OffersBody
@@ -382,72 +387,38 @@ def add_price(
     """
     Function need to check if the user that is making this post has access to the Product, or is from a friend company
     """
-    # Need a utility function to check if product exist and if the product has a price to make it nicer
-    query = (
-        select(table_models_required.OffersBody)
-        .where(table_models_required.OffersBody.id == product_id)
-        .join(table_models_required.Offers, Offers.id == OffersBody.offer_id)
-    )
     match user.role:
         case users_schemas.Roles.app_admin:
             raise HTTPException(
                 status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented"
             )
         case users_schemas.Roles.admin | users_schemas.Roles.user | users_schemas.Roles.manager:
-            query = query.where(
-                table_models_required.Offers.company_key == user.company_key
-            )
+            # continue
+            pass
         case users_schemas.Roles.custom:
             if not user_permissions.can_view_offer(user.id, db):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
                 )
-            query = query.where(
-                table_models_required.Offers.company_key == user.company_key
-            )
+            # continue
+            pass
         case _:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Not authorised")
 
-    # check if the product exists
-    try:
-        product: products.ProductOut2 = db.scalars(query).first()
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal Error, {e}",
-        )
-
-    if not product:
+    # Checking if the product exist in the db
+    if not check_product_exist_for_user(product_id, user.company_key, db):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Product with the id {product_id} does not exist or you don't have permisions to view it",
         )
-
-    # check if the price already exist
-    second_query = (
-        select(
-            table_models_required.OfferPrices,
-            table_models_required.OffersBody,
-            table_models_required.Offers,
-        )
-        .select_from(table_models_required.OfferPrices)
-        .join(
-            OffersBody,
-            OffersBody.id == table_models_required.OfferPrices.offer_product_id,
-        )
-        .join(Offers, Offers.id == OffersBody.offer_id)
-    ).where(table_models_required.OffersBody.id == product_id)
-
-    product_with_price: prices_schemas.ProductWithPrices = db.scalars(
-        second_query
-    ).first()
-    if product_with_price:
+    # Check if the product has already a price
+    if check_product_with_price_exist(product_id, db):
         raise HTTPException(
             status.HTTP_303_SEE_OTHER,
             detail="Price already exists, try updating it",
         )
-    product_with_price: prices_schemas.ProductWithPrices
-    third_query = (
+
+    query = (
         insert(table_models_required.OfferPrices)
         .values(
             **price.model_dump(),
@@ -456,12 +427,8 @@ def add_price(
         )
         .returning(table_models_required.OfferPrices)
     )
-    response = db.scalars(third_query).first()
-    # print(response.product)
+    response = db.scalars(query).first()
     db.commit()
-    # db.refresh(product_with_price)
-    # print(product_with_price)
-
     return response
 
 

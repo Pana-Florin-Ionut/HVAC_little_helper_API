@@ -21,6 +21,47 @@ def check_company_exists(company_id: int, db: Session = Depends(get_db)):
     return db.execute(query).first()
 
 
+def check_product_exist_for_user(
+    product_id: int, user_company_key: str, db: Session = Depends(get_db)
+):
+    product_exist = (
+        db.query(table_models_required.OffersBody)
+        .where(table_models_required.OffersBody.id == product_id)
+        .where(table_models_required.Offers.company_key == user_company_key)
+    ).join(
+        table_models_required.Offers,
+        table_models_required.Offers.id == table_models_required.OffersBody.offer_id,
+    )
+
+    return product_exist.scalar()
+
+
+def check_product_with_price_exist(product_id: int, db: Session = Depends(get_db)):
+    query = (
+        select(
+            table_models_required.OfferPrices,
+            table_models_required.OffersBody,
+            table_models_required.Offers,
+        )
+        .select_from(table_models_required.OfferPrices)
+        .join(
+            table_models_required.OffersBody,
+            table_models_required.OffersBody.id
+            == table_models_required.OfferPrices.offer_product_id,
+        )
+        .join(
+            table_models_required.Offers,
+            table_models_required.Offers.id
+            == table_models_required.OffersBody.offer_id,
+        )
+    ).where(table_models_required.OffersBody.id == product_id)
+
+    product_with_price = db.scalars(query).first()
+    if product_with_price:
+        return True
+    return False
+
+
 def project_exists_key(
     project_key: str, company_key: str, db: Session = Depends(get_db)
 ) -> bool:
