@@ -193,4 +193,5 @@ class OfferPrices(Base):
     offer_product_id = Column(Integer, ForeignKey("offers_body.id"), nullable=False)
     price = Column(Double, nullable=False)
 
+    UniqueConstraint(offering_company, offer_product_id, name="unique_offer_prices")
     product = relationship("OffersBody")

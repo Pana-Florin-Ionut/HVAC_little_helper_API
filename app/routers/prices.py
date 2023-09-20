@@ -4,7 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from . import utils
 from app.schemas import companies, offer_body, offers, products
 from .utils import (
+    check_offer_product_exist_admin,
     check_product_exist_for_user,
+    check_product_exist_for_user_admin,
     check_product_with_price_exist,
     get_offer_details_id,
     get_product_from_offer,
@@ -384,9 +386,8 @@ def add_price(
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
-    """
-    Function need to check if the user that is making this post has access to the Product, or is from a friend company
-    """
+    "Add product for a owned product"
+
     match user.role:
         case users_schemas.Roles.app_admin:
             raise HTTPException(
@@ -432,6 +433,55 @@ def add_price(
     return response
 
 
+@router.post(
+    "/admin/{product_id}",
+    response_model=prices_schemas.ProductWithPrices,
+    status_code=status.HTTP_200_OK,
+)
+def add_price_for_product(
+    product_id: int,
+    price: prices_schemas.ProductWithPricesInAdmin,
+    db: Session = Depends(get_db),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    """
+    APP Admin add a price for a company. Use it for testing, or emergency
+    """
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            pass
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_303_SEE_OTHER,
+                detail="You are not an application_admin. Use /product_id route",
+            )
+    if not check_offer_product_exist_admin(product_id, db):
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            detail=(f"Product with id {product_id} does not exist"),
+        )
+
+    if check_product_exist_for_user_admin(
+        product_id=product_id, company_id=price.offering_company, db=db
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_303_SEE_OTHER,
+            detail=f"Price for product {product_id} and offering company {price.offering_company} already exists, try updating it",
+        )
+
+    query = (
+        insert(table_models_required.OfferPrices)
+        .values(
+            **price.model_dump(),
+            offer_product_id=product_id,
+        )
+        .returning(table_models_required.OfferPrices)
+    )
+    response = db.scalars(query).first()
+    db.commit()
+    return response
+
+
 @router.put(
     "/{product_id}",
     response_model=prices_schemas.ProductWithPrices,
@@ -439,14 +489,53 @@ def add_price(
 )
 def update_price(
     product_id: int,
-    update_product: prices_schemas.PricesOut,
+    update_product: prices_schemas.ProductWithPricesIn,
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     """
-    Function need to check if the user that is making this post has access to the Product, or is from a friend company
+    Function need to check if the user that is making this post has access to the Product
     """
-    pass
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            raise HTTPException(
+                status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented"
+            )
+        case users_schemas.Roles.admin | users_schemas.Roles.user | users_schemas.Roles.manager:
+            # continue
+            pass
+        case users_schemas.Roles.custom:
+            if not user_permissions.can_view_offer(user.id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                )
+            # continue
+            pass
+        case _:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Not authorised")
+    if not check_product_exist_for_user(product_id, user.company_key, db):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Product with the id {product_id} does not exist or you don't have permisions to view it",
+        )
+    # Check if the product has already a price
+    if not check_product_with_price_exist(product_id, db):
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail="Price does not exist, try adding it"
+        )
+
+    query = (
+        update(table_models_required.OfferPrices)
+        .values(
+            **update_product.model_dump(),
+            offering_company=user.company.id,
+        )
+        .where(table_models_required.OfferPrices.offer_product_id == product_id)
+        .returning(table_models_required.OfferPrices)
+    )
+    response = db.scalars(query).first()
+    db.commit()
+    return response
 
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)

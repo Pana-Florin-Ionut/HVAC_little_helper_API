@@ -13,6 +13,15 @@ def check_user_exists(user_id: int, db: Session = Depends(get_db)) -> bool:
     return user_exists
 
 
+def check_offer_product_exist_admin(
+    product_id: int, db: Session = Depends(get_db)
+) -> bool:
+    offer_product_exist = db.query(
+        exists().where(table_models_required.OffersBody.id == product_id)
+    ).scalar()
+    return offer_product_exist
+
+
 def check_company_exists(company_id: int, db: Session = Depends(get_db)):
     query = select(table_models_required.Companies).where(
         table_models_required.Companies.id == company_id
@@ -34,6 +43,21 @@ def check_product_exist_for_user(
     )
 
     return product_exist.scalar()
+
+
+def check_product_exist_for_user_admin(
+    product_id: int, company_id: int, db: Session = Depends(get_db)
+):
+    """
+    Check if price exist for offering company and product
+
+    """
+    product_is_existing = db.query(
+        exists()
+        .where(table_models_required.OfferPrices.offer_product_id == product_id)
+        .where(table_models_required.OfferPrices.offering_company == company_id)
+    )
+    return product_is_existing.scalar()
 
 
 def check_product_with_price_exist(product_id: int, db: Session = Depends(get_db)):
