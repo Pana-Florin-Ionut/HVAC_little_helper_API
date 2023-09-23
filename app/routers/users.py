@@ -191,7 +191,7 @@ def get_all_users(
     actor: users_schemas.UserOut = Depends(oauth2.get_current_user),
     db: Session = Depends(get_db),
 ):
-    print(f" Actor {actor.role}")
+    # print(f" Actor {actor.role}")
     # print(users_schemas.Roles.users_schemas.Roles.app_admin)
     match actor.role:
         # case users_schemas.Roles.app_admin:
@@ -290,3 +290,26 @@ def get_user(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=f"User not in your company",
                 )
+
+
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(
+    id: int,
+    db: Session = Depends(get_db),
+    actor: users_schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    user = db.get(table_models_required.Users, id)
+
+    match actor.role:
+        case users_schemas.Roles.app_admin:
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail=f"User not found"
+                )
+            db.delete(user)
+            db.commit()
+            return {"Message": "User deleted"}
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+            )

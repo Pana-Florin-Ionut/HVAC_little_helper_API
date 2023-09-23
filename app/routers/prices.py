@@ -100,7 +100,7 @@ def get_offer_with_prices(
     offer_id: int = None,
 ):
     """
-    This will return all the prices for one offer
+    This will return all the prices for one offer for buyer
     """
     query = (
         select(
@@ -150,7 +150,7 @@ def get_all_product_from_clients(
     search: str = None,
 ):
     """
-    This will return all the prices for offering company
+    This will return all the prices for offering company as a seller
     """
     query = (
         select(
@@ -211,7 +211,7 @@ def get_one_offer_from_clients(
     # search: str = None,
 ):
     """
-    This will return all the prices for offering company
+    This will return all the prices for offering company as a seller
     """
     query = (
         select(
@@ -270,7 +270,7 @@ def get_one_product_from_clients(
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     """
-    This will return a product with prices
+    This will return a product with prices as a seller
     Note: the product_id is the id from OffersBody, returned ID is from OffersPrices
     """
     # print(product_id)
@@ -308,6 +308,78 @@ def get_one_product_from_clients(
             detail=f"Product with id {product_id} not found or you don't have the permission to view it",
         )
     return response
+
+
+@router.post("/clients/product/{product_id}", status_code=status.HTTP_201_CREATED)
+def add_product_price(
+    product_id: int,
+    price: prices_schemas.ProductWithPricesIn,
+    db: Session = Depends(get_db),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    """
+    Add a price as a seller. Query need to check if the user can see the offer.
+    """
+    query = (
+        select(
+            table_models_required.OfferPrices,
+            table_models_required.OffersBody,
+            # table_models_required.Offers,
+        )
+        .select_from(table_models_required.OfferPrices)
+        .join(
+            OffersBody,
+            OffersBody.id == table_models_required.OfferPrices.offer_product_id,
+        )
+        .where(table_models_required.OffersBody.id == product_id)
+        # .join(Offers, Offers.id == OffersBody.offer_id)
+    )
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            pass
+
+        case users_schemas.Roles.admin | users_schemas.Roles.user | users_schemas.Roles.manager:
+            query = query.where(
+                table_models_required.OfferPrices.offering_company == user.company.id
+            )
+
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authorised"
+            )
+    pass
+    # raise HTTPException(
+    #     status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented"
+    # )
+
+
+@router.put("/clients/product/{product_id}", status_code=status.HTTP_201_CREATED)
+def update_product_price(
+    product_id: int,
+    price: prices_schemas.ProductWithPricesIn,
+    db: Session = Depends(get_db),
+):
+    """
+    Update a price as a seller. Query need to check if the user can see the offer.
+
+    """
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented"
+    )
+
+
+@router.delete("/clients/product/{product_id}", status_code=status.HTTP_201_CREATED)
+def delete_product_price(
+    product_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Delete a price as a seller. Query need to check if the user can see the offer and the price exists.
+    """
+
+    raise HTTPException(
+        status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented"
+    )
 
 
 @router.get(
@@ -547,7 +619,16 @@ def delete_price(
     """
     Funtion need to check if the user was the creator of the price
     """
-    pass
+    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented")
+
+
+@router.delete("admin/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+def admin_delete_price(
+    product_id: int,
+    db: Session = Depends(get_db),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented")
 
 
 def check_company_friend(
