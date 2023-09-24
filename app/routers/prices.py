@@ -8,6 +8,7 @@ from .utils import (
     check_product_exist_for_user,
     check_product_exist_for_user_admin,
     check_product_with_price_exist,
+    check_product_with_price_exist_for_user,
     get_offer_details_id,
     get_product_from_offer,
 )
@@ -296,7 +297,15 @@ def get_one_product_from_clients(
             query = query.where(
                 table_models_required.OfferPrices.offering_company == user.company.id
             )
-
+        case users_schemas.Roles.custom:
+            # not tested yet
+            if not user_permissions.can_view_user(user.id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+                )
+            query = query.where(
+                table_models_required.OfferPrices.offering_company == user.company.id
+            )
         case _:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authorised"
@@ -318,7 +327,7 @@ def add_product_price(
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     """
-    Add a price as a seller. Query need to check if the user can see the offer.
+    Add a price as a seller. Query need to check if the user can see the offer and price is not exists.
     """
     query = (
         select(
@@ -336,9 +345,20 @@ def add_product_price(
     )
     match user.role:
         case users_schemas.Roles.app_admin:
-            pass
+            raise HTTPException(
+                status_code=status.HTTP_303_SEE_OTHER, detail="/prices/{product_id}"
+            )
 
         case users_schemas.Roles.admin | users_schemas.Roles.user | users_schemas.Roles.manager:
+            query = query.where(
+                table_models_required.OfferPrices.offering_company == user.company.id
+            )
+        case users_schemas.Roles.custom:
+            # not tested yet
+            if not user_permissions.can_view_user(user.id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+                )
             query = query.where(
                 table_models_required.OfferPrices.offering_company == user.company.id
             )
@@ -347,7 +367,31 @@ def add_product_price(
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authorised"
             )
-    pass
+
+    if not check_product_exist_for_user(
+        product_id=product_id, user_company_key=user.company_key, db=db
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Product with id {product_id} not found",
+        )
+
+    if check_product_with_price_exist_for_user(
+        product_id=product_id, user_company_key=user.company_key, db=db
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Product with id {product_id} already has a price",
+        )
+    new_price = table_models_required.OfferPrices(
+        **price.model_dump(),
+        offering_company=user.company.id,
+        offer_product_id=product_id,
+    )
+    db.add(new_price)
+    db.commit()
+    db.refresh(new_price)
+    return new_price
     # raise HTTPException(
     #     status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented"
     # )

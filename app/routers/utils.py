@@ -6,6 +6,16 @@ from .. import table_models_required
 from ..database import get_db
 
 
+def check_user_can_post_price(
+    user_id: int, product_id: int, db: Session = Depends(get_db)
+):
+    # search if user is from a friend company
+    query = db.query(table_models_required.CompanyConnections).where(
+        table_models_required.CompanyConnections.user_id == user_id
+    )
+    user_can_post_price = db.query(query)
+
+
 def check_user_exists(user_id: int, db: Session = Depends(get_db)) -> bool:
     user_exists = db.query(
         exists().where(table_models_required.Users.id == user_id)
@@ -58,6 +68,37 @@ def check_product_exist_for_user_admin(
         .where(table_models_required.OfferPrices.offering_company == company_id)
     )
     return product_is_existing.scalar()
+
+
+def check_product_with_price_exist_for_user(
+    product_id: int, user_company_key: str, db: Session = Depends(get_db)
+):
+    query = (
+        (
+            select(
+                table_models_required.OfferPrices,
+                table_models_required.OffersBody,
+                table_models_required.Offers,
+            )
+            .select_from(table_models_required.OfferPrices)
+            .join(
+                table_models_required.OffersBody,
+                table_models_required.OffersBody.id
+                == table_models_required.OfferPrices.offer_product_id,
+            )
+            .join(
+                table_models_required.Offers,
+                table_models_required.Offers.id
+                == table_models_required.OffersBody.offer_id,
+            )
+        )
+        .where(table_models_required.OffersBody.id == product_id)
+        .where(table_models_required.OfferPrices.offering_company == user_company_key)
+    )
+    product_with_price = db.scalars(query).first()
+    if product_with_price:
+        return True
+    return False
 
 
 def check_product_with_price_exist(product_id: int, db: Session = Depends(get_db)):
