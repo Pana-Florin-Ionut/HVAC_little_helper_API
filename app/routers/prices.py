@@ -9,6 +9,7 @@ from .utils import (
     check_product_exist_for_user_admin,
     check_product_with_price_exist,
     check_product_with_price_exist_for_user,
+    check_user_can_post_price,
     get_offer_details_id,
     get_product_from_offer,
 )
@@ -319,7 +320,11 @@ def get_one_product_from_clients(
     return response
 
 
-@router.post("/clients/product/{product_id}", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/clients/product/{product_id}",
+    status_code=status.HTTP_201_CREATED,
+    response_model=prices_schemas.ProductWithPrices,
+)
 def add_product_price(
     product_id: int,
     price: prices_schemas.ProductWithPricesIn,
@@ -346,43 +351,39 @@ def add_product_price(
     match user.role:
         case users_schemas.Roles.app_admin:
             raise HTTPException(
-                status_code=status.HTTP_303_SEE_OTHER, detail="/prices/{product_id}"
+                status_code=status.HTTP_303_SEE_OTHER,
+                detail="/prices/admin/{product_id}",
             )
 
         case users_schemas.Roles.admin | users_schemas.Roles.user | users_schemas.Roles.manager:
-            query = query.where(
-                table_models_required.OfferPrices.offering_company == user.company.id
-            )
+            pass
         case users_schemas.Roles.custom:
             # not tested yet
             if not user_permissions.can_view_user(user.id, db):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
                 )
-            query = query.where(
-                table_models_required.OfferPrices.offering_company == user.company.id
-            )
 
         case _:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authorised"
             )
 
-    if not check_product_exist_for_user(
-        product_id=product_id, user_company_key=user.company_key, db=db
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Product with id {product_id} not found",
-        )
-
     if check_product_with_price_exist_for_user(
-        product_id=product_id, user_company_key=user.company_key, db=db
+        product_id=product_id, user_company_id=user.company.id, db=db
     ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Product with id {product_id} already has a price",
+            detail=f"Product with id {product_id} already has a price, try update it",
         )
+    if not check_user_can_post_price(
+        product_id=product_id, user_company_id=user.company.id, db=db
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to post a price or product does not exists",
+        )
+
     new_price = table_models_required.OfferPrices(
         **price.model_dump(),
         offering_company=user.company.id,
@@ -392,24 +393,57 @@ def add_product_price(
     db.commit()
     db.refresh(new_price)
     return new_price
-    # raise HTTPException(
-    #     status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented"
-    # )
 
 
-@router.put("/clients/product/{product_id}", status_code=status.HTTP_201_CREATED)
+@router.put(
+    "/clients/product/{product_id}",
+    status_code=status.HTTP_201_CREATED,
+    # response_model=prices_schemas.ProductWithPrices,
+)
 def update_product_price(
     product_id: int,
     price: prices_schemas.ProductWithPricesIn,
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
     db: Session = Depends(get_db),
 ):
     """
     Update a price as a seller. Query need to check if the user can see the offer.
 
     """
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented"
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            raise HTTPException(
+                status_code=status.HTTP_303_SEE_OTHER,
+                detail="PUT/prices/admin/{product_id}",
+            )
+        case users_schemas.Roles.admin | users_schemas.Roles.user | users_schemas.Roles.manager:
+            pass
+        case users_schemas.Roles.custom:
+            if not user_permissions.can_view_user(user.id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+                )
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authorised"
+            )
+    if not check_product_with_price_exist_for_user(
+        product_id=product_id, user_company_id=user.company.id, db=db
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Price does not exists"
+        )
+    query = (
+        update(table_models_required.OfferPrices)
+        .where(table_models_required.OfferPrices.offer_product_id == product_id)
+        .where(table_models_required.OfferPrices.offering_company == user.company.id)
+        .values(**price.model_dump())
+        .returning(table_models_required.OfferPrices)
     )
+    product = db.scalars(query).first()
+    db.commit()
+    db.refresh(product)
+    return product
 
 
 @router.delete("/clients/product/{product_id}", status_code=status.HTTP_201_CREATED)
