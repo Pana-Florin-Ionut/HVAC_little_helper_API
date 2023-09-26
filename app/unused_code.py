@@ -266,3 +266,20 @@
 #             )
 
 # Code snippet from c:\Users\panaf\Programming\HVAC_little_helper_API\app\routers\offer_body.py
+
+
+# def check_company_friend(
+#     offer_id: int,
+#     offer_company_id: int,
+#     db: Session = Depends(get_db),
+#     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+# ):
+#     can_view = (
+#         db.query(exists().table_models_required.CompanyConnections)
+#         .where(table_models_required.CompanyConnections.friend_id == user.company.id)
+#         .where(table_models_required.CompanyConnections.company_id == offer_company_id)
+#         .where(table_models_required.CompanyConnections.offer_id == offer_id)
+#         .first()
+#     )
+#     print(can_view)
+# Code snippet from c:\Users\panaf\Programming\HVAC_little_helper_API\app\routers\prices.py

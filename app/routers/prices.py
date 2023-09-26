@@ -334,20 +334,20 @@ def add_product_price(
     """
     Add a price as a seller. Query need to check if the user can see the offer and price is not exists.
     """
-    query = (
-        select(
-            table_models_required.OfferPrices,
-            table_models_required.OffersBody,
-            # table_models_required.Offers,
-        )
-        .select_from(table_models_required.OfferPrices)
-        .join(
-            OffersBody,
-            OffersBody.id == table_models_required.OfferPrices.offer_product_id,
-        )
-        .where(table_models_required.OffersBody.id == product_id)
-        # .join(Offers, Offers.id == OffersBody.offer_id)
-    )
+    # query = (
+    #     select(
+    #         table_models_required.OfferPrices,
+    #         table_models_required.OffersBody,
+    #         # table_models_required.Offers,
+    #     )
+    #     .select_from(table_models_required.OfferPrices)
+    #     .join(
+    #         OffersBody,
+    #         OffersBody.id == table_models_required.OfferPrices.offer_product_id,
+    #     )
+    #     .where(table_models_required.OffersBody.id == product_id)
+    #     # .join(Offers, Offers.id == OffersBody.offer_id)
+    # )
     match user.role:
         case users_schemas.Roles.app_admin:
             raise HTTPException(
@@ -446,18 +446,48 @@ def update_product_price(
     return product
 
 
-@router.delete("/clients/product/{product_id}", status_code=status.HTTP_201_CREATED)
+@router.delete("/clients/product/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_product_price(
     product_id: int,
     db: Session = Depends(get_db),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     """
     Delete a price as a seller. Query need to check if the user can see the offer and the price exists.
     """
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            raise HTTPException(
+                status_code=status.HTTP_303_SEE_OTHER,
+                detail="DELETE/prices/admin/{product_id}",
+            )
+        case users_schemas.Roles.admin | users_schemas.Roles.user | users_schemas.Roles.manager:
+            pass
+        case users_schemas.Roles.custom:
+            if not user_permissions.can_view_user(user.id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+                )
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authorised"
+            )
 
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented"
+    if not check_product_with_price_exist_for_user(
+        product_id=product_id, user_company_id=user.company.id, db=db
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Price does not exists"
+        )
+    query = (
+        delete(table_models_required.OfferPrices)
+        .where(table_models_required.OfferPrices.offer_product_id == product_id)
+        .where(table_models_required.OfferPrices.offering_company == user.company.id)
     )
+    db.execute(query)
+    db.commit()
+
+    return {"message": "Price deleted"}
 
 
 @router.get(
@@ -695,31 +725,64 @@ def delete_price(
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     """
-    Funtion need to check if the user was the creator of the price
+    Function need to check if the user was the creator of the price
     """
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented")
+    query = delete(table_models_required.OfferPrices).where(
+        table_models_required.OfferPrices.offer_product_id == product_id
+    )
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            raise HTTPException(
+                status.HTTP_303_SEE_OTHER, detail="DELETE/admin/{product_id} "
+            )
+        case users_schemas.Roles.admin | users_schemas.Roles.user | users_schemas.Roles.manager:
+            query = query.where(
+                table_models_required.OfferPrices.offering_company == user.company.id
+            )
+        case users_schemas.Roles.custom:
+            if not user_permissions.can_create_offer(user.id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+                )
+            query = query.where(
+                table_models_required.OfferPrices.offering_company == user.company.id
+            )
+        case _:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Not authorised")
+
+    response = db.execute(query)
+    if response.rowcount == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Product with the id {product_id} does not exist or you don't have permisions to view it",
+        )
+    db.commit()
 
 
-@router.delete("admin/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "admin/{product_id}/{company_id}", status_code=status.HTTP_204_NO_CONTENT
+)
 def admin_delete_price(
     product_id: int,
+    company_id: int,
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented")
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            pass
+        case _:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Not authorised")
 
-
-def check_company_friend(
-    offer_id: int,
-    offer_company_id: int,
-    db: Session = Depends(get_db),
-    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
-):
-    can_view = (
-        db.query(exists().table_models_required.CompanyConnections)
-        .where(table_models_required.CompanyConnections.friend_id == user.company.id)
-        .where(table_models_required.CompanyConnections.company_id == offer_company_id)
-        .where(table_models_required.CompanyConnections.offer_id == offer_id)
-        .first()
+    query = (
+        delete(table_models_required.OfferPrices)
+        .where(table_models_required.OfferPrices.offer_product_id == product_id)
+        .where(table_models_required.OfferPrices.offering_company == company_id)
     )
-    print(can_view)
+    response = db.execute(query)
+    if response.rowcount == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Product with the id {product_id} for company with id{company_id} does not exist",
+        )
+    db.commit()
