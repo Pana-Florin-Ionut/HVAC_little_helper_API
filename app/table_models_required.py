@@ -155,6 +155,9 @@ class CompanyConnections(Base):
     offer_id = Column(Integer, ForeignKey("offers.id"), nullable=False)
     friend_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
     UniqueConstraint(company_id, friend_id, offer_id, name="unique_company_connections")
+    company = relationship("Companies", foreign_keys="CompanyConnections.company_id")
+    friend = relationship("Companies", foreign_keys="CompanyConnections.friend_id")
+    offer = relationship("Offers")
 
 
 class OffersBody(Base):

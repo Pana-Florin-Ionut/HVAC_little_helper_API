@@ -11,7 +11,17 @@ from .schemas import offers as offers_schemas
 from .schemas import users as users_schemas
 
 
-from .routers import companies, offer_body, projects, users, offers, auth, prices
+from .routers import (
+    companies,
+    company_connections,
+    prices,
+    offer_body,
+    projects,
+    users,
+    offers,
+    auth,
+)
+
 from . import table_models_required
 
 
@@ -34,47 +44,9 @@ app.include_router(offer_body.router)
 app.include_router(offers.router)
 app.include_router(auth.router)
 app.include_router(prices.router)
+app.include_router(company_connections.router)
 
 
 @app.get("/")
 async def root(db: Session = Depends(get_db)):
     return {"message": "Hello World"}
-
-
-@app.get("/offers/{id}")
-async def get_offer(id: int):
-    # print(offer)
-    offer = "offer"
-    if not offer:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Offer with id {id} not found",
-        )
-    return offer
-
-
-@app.put("/offers/{id}")
-async def update_offer(id: int, offer: offers_schemas.Offer):
-    index = "offer"
-    print("Index" + str(index))
-    if not index:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Offer with id {id} not found",
-        )
-    # offers_dict[id] = offer.dict()
-    # return {"Offer updated": f"{id}: {find_offer(id)} "}
-
-
-@app.delete("/delete/{id}")
-async def delete_offer(id: int, db: Session = Depends(get_db)):
-    offer = "offer"
-    if not offer:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Offer with id {id} not found",
-        )
-    # offers_dict.pop(id)
-    # print(offers_dict)
-
-    return {"Offer deleted": id}

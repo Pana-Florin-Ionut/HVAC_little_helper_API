@@ -14,9 +14,8 @@ from .utils import (
     get_product_from_offer,
 )
 from sqlalchemy import Subquery, select, text, update, insert, delete, MappingResult
-from sqlalchemy.orm import with_parent
 from ..table_models_required import Offers, OffersBody
-from .. import oauth2, table_models_required, table_models_optional, tables
+from .. import oauth2, table_models_required
 from ..schemas import offers as offers_schemas
 from ..schemas import prices as prices_schemas
 from ..schemas import products as products_schemas
