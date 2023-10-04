@@ -1,7 +1,11 @@
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+import psycopg2
+from sqlalchemy import exists, insert, select
+import sqlalchemy
+
+from app.routers.utils import check_if_user_can_see_offer
 
 from .. import user_permissions
 from .. import oauth2, table_models_required
@@ -54,6 +58,121 @@ def get_all_company_friends(
     try:
         response = db.scalars(query).all()
         return response
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+
+
+@router.get(
+    "/{id}",
+    status_code=status.HTTP_200_OK,
+    response_model=company_connections_schemas.CompanyConnectionsFull,
+)
+def get_one_company_friend(
+    id: int,
+    db: Session = Depends(get_db),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    query = select(table_models_required.CompanyConnections)
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            pass
+        case users_schemas.Roles.admin | users_schemas.Roles.user | users_schemas.Roles.manager:
+            query = query.where(
+                table_models_required.CompanyConnections.company_id == user.company.id
+            )
+        case users_schemas.Roles.custom:
+            if not user_permissions.can_view_user(user.id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+                )
+            query = query.where(
+                table_models_required.CompanyConnections.company_id == user.company.id
+            )
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authorised"
+            )
+    query = query.where(table_models_required.CompanyConnections.id == id)
+
+    try:
+        response = db.scalars(query).first()
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        )
+    if response is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company Connection not found",
+        )
+    return response
+
+
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    response_model=company_connections_schemas.CompanyConnectionsFull,
+)
+def add_company_connection(
+    new_connection: company_connections_schemas.CompanyConnectionsIn,
+    db: Session = Depends(get_db),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    if user.company.id == new_connection.friend_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Company and Friend cannot be the same",
+        )
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            pass
+        case users_schemas.Roles.admin | users_schemas.Roles.user | users_schemas.Roles.manager:
+            if not check_if_user_can_see_offer(
+                new_connection.offer_id, user.company_key, db
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="There is no offer with that id or you cannot view it",
+                )
+        case users_schemas.Roles.custom:
+            if not user_permissions.can_view_user(user.id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+                )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="There is no offer with that id or you cannot view it",
+            )
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authorised"
+            )
+
+    try:
+        new_connection = table_models_required.CompanyConnections(
+            **new_connection.model_dump(), company_id=user.company.id
+        )
+        db.add(new_connection)
+        db.commit()
+        db.refresh(new_connection)
+        return new_connection
+    except sqlalchemy.exc.IntegrityError as e:
+        # pgcode 23505 means psycopg2.errors.ForeignKeyViolation
+        # print(e.orig.pgcode)
+        if e.orig.pgcode == "23503":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Friend with the given id is not exists",
+            )
+        if e.orig.pgcode == "23505":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Company Connection already exists",
+            )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)

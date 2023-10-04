@@ -31,6 +31,15 @@ class Offers(BaseModel):
         from_attributes = True
 
 
+class OffersSellersOutLite(BaseModel):
+    id: int
+    client_key: str | None = None
+    company_key: str
+    project_key: str
+    offer_name: str
+    offer_key: str
+
+
 class OffersSellersOut(BaseModel):
     id: int
     client_key: str | None = None

@@ -6,6 +6,17 @@ from .. import table_models_required
 from ..database import get_db
 
 
+def check_if_user_can_see_offer(
+    offer_id: int, user_company_key: str, db: Session = Depends(get_db)
+):
+    can_view = db.query(
+        exists()
+        .where(table_models_required.Offers.id == offer_id)
+        .where(table_models_required.Offers.company_key == user_company_key)
+    )
+    return can_view.scalar()
+
+
 def check_user_can_post_price(
     user_company_id: int, product_id: int, db: Session = Depends(get_db)
 ):
