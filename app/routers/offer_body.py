@@ -6,7 +6,7 @@ from app.schemas import companies, offer_body, offers, products
 from .utils import get_offer_details_id, get_product_from_offer
 from sqlalchemy import Subquery, select, update, insert, delete, MappingResult
 from ..table_models_required import Offers, OffersBody
-from .. import oauth2, table_models_required, table_models_optional, tables
+from .. import oauth2, table_models_required
 from ..schemas import offers as offers_schemas
 from ..schemas import products as products_schemas
 from ..schemas import users as users_schemas

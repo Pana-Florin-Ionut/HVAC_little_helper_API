@@ -128,21 +128,27 @@ class Products(Base):
     id = Column(Integer, primary_key=True, index=True)
     product_name = Column(String, nullable=False)
     product_key = Column(String, nullable=False, unique=True)
-    ch1 = Column(String, nullable=False)
-    ch2 = Column(String, nullable=False)
-    ch3 = Column(String, nullable=False)
-    ch4 = Column(String, nullable=False)
-    ch5 = Column(String, nullable=False)
-    ch6 = Column(String, nullable=False)
-    ch7 = Column(String, nullable=False)
-    ch8 = Column(String, nullable=False)
-    UM = Column(Double, nullable=False)
+    company_id = Column(
+        Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=True
+    )
+    ch_1 = Column(String, nullable=True)
+    ch_2 = Column(String, nullable=True)
+    ch_3 = Column(String, nullable=True)
+    ch_4 = Column(String, nullable=True)
+    ch_5 = Column(String, nullable=True)
+    ch_6 = Column(String, nullable=True)
+    ch_7 = Column(String, nullable=True)
+    ch_8 = Column(String, nullable=True)
+    um = Column(String, nullable=False)
+    price_per_um = Column(Double, nullable=False)
+    observations = Column(String, nullable=True)
     created = Column(
         TIMESTAMP(timezone=True), server_default=text("now()"), nullable=False
     )
     created_by = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
+    company = relationship("Companies", foreign_keys="Products.company_id")
 
 
 class CompanyConnections(Base):

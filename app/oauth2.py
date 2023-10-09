@@ -38,14 +38,14 @@ def verify_access_token(token: str, credentials_exception):
             raise credentials_exception
         token_data = schemas.TokenData(id=id)  # can add other data to the token
         # token_data = schemas.TokenData(id=id, company_id=company_id, role=role)
-
-
         return token_data
     except JWTError:
         raise credentials_exception
 
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+def get_current_user(
+    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail=f"Could not validate credentials",
@@ -53,9 +53,14 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     )
     token = verify_access_token(token, credentials_exception)
 
-    user = db.query(table_models_required.Users).filter(table_models_required.Users.id == token.id).first()
+    user = (
+        db.query(table_models_required.Users)
+        .filter(table_models_required.Users.id == token.id)
+        .first()
+    )
 
     return user
+
 
 def logout(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
@@ -65,6 +70,10 @@ def logout(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     )
     token = verify_access_token(token, credentials_exception)
 
-    user = db.query(table_models_required.Users).filter(table_models_required.Users.id == token.id).first()
+    user = (
+        db.query(table_models_required.Users)
+        .filter(table_models_required.Users.id == token.id)
+        .first()
+    )
 
     return user

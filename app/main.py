@@ -1,16 +1,11 @@
 from fastapi import FastAPI, status, HTTPException, Depends
 from sqlalchemy.orm import Session
-from . import table_models_optional
 from .database import engine, get_db
-from . import tables
-from .database_model import Database as db
 from . import oauth2
 from .database_connection import conn
 from . import user_permissions
 from .schemas import offers as offers_schemas
 from .schemas import users as users_schemas
-
-
 from .routers import (
     companies,
     company_connections,
@@ -20,14 +15,10 @@ from .routers import (
     users,
     offers,
     auth,
+    products,
 )
 
 from . import table_models_required
-
-
-# class Offer(BaseModel):
-
-db = db(conn)
 
 table_models_required.Base.metadata.create_all(bind=engine)
 
@@ -45,6 +36,7 @@ app.include_router(offers.router)
 app.include_router(auth.router)
 app.include_router(prices.router)
 app.include_router(company_connections.router)
+app.include_router(products.router)
 
 
 @app.get("/")
