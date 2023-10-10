@@ -149,6 +149,21 @@ class Products(Base):
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     company = relationship("Companies", foreign_keys="Products.company_id")
+    UniqueConstraint(
+        company_id,
+        product_key,
+        product_name,
+        ch_1,
+        ch_2,
+        ch_3,
+        ch_4,
+        ch_5,
+        ch_6,
+        ch_7,
+        ch_8,
+        um,
+        name="unique_product_name_ch_um",
+    )
 
 
 class CompanyConnections(Base):

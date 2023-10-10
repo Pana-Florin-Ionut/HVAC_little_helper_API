@@ -28,6 +28,7 @@ class ProductIn(BaseModel):
 
 
 class ProductOutFull(BaseModel):
+    id: int
     product_name: str
     product_key: str
     company_id: int
