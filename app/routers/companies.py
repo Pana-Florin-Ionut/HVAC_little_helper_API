@@ -55,7 +55,7 @@ def get_companies(
                 .where(
                     table_models_required.Companies.company_key.icontains(company_key)
                 )
-                .where(table_models_required.Companies.id != user.company_key)
+                .where(table_models_required.Companies.id != user.company.id)
                 .limit(limit)
                 .offset(skip)
                 .all()
@@ -170,68 +170,14 @@ def delete_company(
 @router.put("/{company_id}", status_code=status.HTTP_202_ACCEPTED)
 def update_company(
     company_id: int,
-    updaded_company: companies_schema.CompanyCreate,
+    updaded_company: companies_schema.CompanyUpdate,
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
-    # updating a company key should update all the projects, offers and products that have the company key
-
-    if check_company_exists(company_id, db) == None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Company with id {company_id} does not exist",
-        )
-
-    old_company: companies_schema.CompanyOut = get_company_details(company_id, db)
-    if (
-        old_company.company_name == updaded_company.company_name
-        and old_company.company_key == updaded_company.company_key
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_304_NOT_MODIFIED,
-            detail=f"No changes made to company with id {company_id}",
-        )
-
     match user.role:
         case users_schemas.Roles.app_admin:
-            if (
-                old_company.company_key != updaded_company.company_key
-                and check_company_has_projects(company_id, db) != None
-            ):
-                old_company_key = old_company.company_key
-                update_projects(
-                    company_id, old_company_key, updaded_company.company_key, db
-                )
-
-            update_query = (
-                update(table_models_required.Companies)
-                .where(table_models_required.Companies.id == company_id)
-                .values(**updaded_company.model_dump())
-                .returning(table_models_required.Companies.id)
-            )
-            db.execute(update_query)
+            company: companies_schema.CompanyOut = get_company_details(company_id, db)
+            company.company_name = updaded_company.company_name
             db.commit()
-            return get_company_details(company_id, db)
-        case users_schemas.Roles.test:
-            if (
-                old_company.company_key != updaded_company.company_key
-                and check_company_has_projects(company_id, db) != None
-            ):
-                old_company_key = old_company.company_key
-                update_projects(
-                    company_id, old_company_key, updaded_company.company_key, db
-                )
-            query = (
-                update(table_models_required.Companies)
-                .where(table_models_required.Companies.id == company_id)
-                .values(**updaded_company.model_dump())
-                .returning(table_models_required.Companies.id)
-            )
-            db.execute(query)
-            db.commit()
-            return get_company_details(company_id, db)
-        case _:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You are not authorized to perform this action",
-            )
+            db.refresh(company)
+            return company

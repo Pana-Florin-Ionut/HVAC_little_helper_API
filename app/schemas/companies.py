@@ -21,6 +21,13 @@ class CompanyCreate(BaseModel):
         from_attributes = True
 
 
+class CompanyUpdate(BaseModel):
+    company_name: str
+
+    class Config:
+        from_attributes = True
+
+
 class CompanyOut(BaseModel):
     id: int
     company_name: str

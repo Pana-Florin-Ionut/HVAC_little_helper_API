@@ -32,8 +32,8 @@ router = APIRouter(
 def get_projects(
     user: schema_users.UserOut = Depends(oauth2.get_current_user),
     db: Session = Depends(get_db),
-    company_key: Optional[str] = None,
-    project_key: Optional[int] = None,
+    company_key: Optional[str] = None,  # for admin only
+    project_key: Optional[str] = None,
     project_name: Optional[str] = None,
     search: Optional[str] = None,
     limit: int = 100,
@@ -112,6 +112,8 @@ def get_projects(
                             project_key
                         )
                     )
+                query = query.limit(limit).offset(offset)
+                print(query)
                 projects = db.scalars(query).all()
                 return projects
             except Exception as e:
@@ -121,7 +123,7 @@ def get_projects(
                     detail=f"Company with key  does not exist",
                 )
 
-        case "custom":
+        case users_schemas.Roles.custom:
             if user_permissions.can_view_project(user.id, db):
                 try:
                     query = select(table_models_required.Projects).where(
@@ -202,7 +204,7 @@ def create_project(
                         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                         detail="Internal server error",
                     )
-        case "custom":
+        case users_schemas.Roles.custom:
             if user_permissions.can_create_project(user.id, db):
                 try:
                     db_project: dict = table_models_required.Projects(
@@ -263,7 +265,7 @@ def create_project(
                     # e.orig.pgcode == "23505" is the error code for unique constraint violation
                     raise HTTPException(
                         status_code=status.HTTP_409_CONFLICT,
-                        detail=f"Project with name {project.project_name} or key {project.project_key} already exists ",
+                        detail=f"Project with name {project.project_name} or key {project.project_key} already exists for this company",
                     )
                 elif e.orig.pgcode == "23503":
                     # 23503 pgcode is psycopg2.errors.ForeignKeyViolation
@@ -290,6 +292,7 @@ def create_project(
             )
 
 
+# use a schema for that.
 @router.put(
     "/admin/{company_key}/{project_key}",
     response_model=schema_projects.ProjectOut,
@@ -337,6 +340,7 @@ def update_project(
                 )
 
 
+# need redone, use project id and company key from user
 @router.delete("/{company_key}/{project_key}", status_code=status.HTTP_200_OK)
 def delete_project(
     project_key: str,

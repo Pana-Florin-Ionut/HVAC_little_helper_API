@@ -15,36 +15,6 @@ import logging
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
-# old method, uses json body for getting the results
-# @router.post("/", status_code=status.HTTP_201_CREATED, response_model=users_schemas.UserOut)
-# def create_user(user: users_schemas.UserCreate, db: Session = Depends(get_db)):
-#     try:
-#         hashed_password = utils.hash(user.password)
-#         user.password = hashed_password
-#         new_user = table_models_required.Users(**user.dict())
-#         db.add(new_user)
-#         db.commit()
-#         db.refresh(new_user)
-#         return new_user
-#     except exc.IntegrityError as e:
-#         if e.orig.pgcode == "23505":
-#             # 23505 code is psycopg error code for unique violation
-#             logging.warn(f"{datetime.utcnow()} - User already exists: {e} ")
-#             raise HTTPException(
-#                 status_code=status.HTTP_400_BAD_REQUEST, detail=f"User already exists"
-#             )
-#         else:
-#             logging.warn(f"{datetime.utcnow()} - Error creating user: {e} ")
-#             raise HTTPException(
-#                 status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error creating user"
-#             )
-#     except Exception as e:
-#         logging.warn(f"{datetime.utcnow()} - Error creating user: {e} ")
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error creating user"
-#         )
-
-
 # new methon, uses form body for getting the results
 @router.post(
     "", status_code=status.HTTP_201_CREATED, response_model=users_schemas.UserOut
@@ -193,15 +163,17 @@ def get_all_users(
 ):
     # print(f" Actor {actor.role}")
     # print(users_schemas.Roles.users_schemas.Roles.app_admin)
+    # need refactoring, too long
     match actor.role:
         # case users_schemas.Roles.app_admin:
         case users_schemas.Roles.app_admin:
             return db.query(table_models_required.Users).all()
         case users_schemas.Roles.admin:
             return (
-                db.query(table_models_required.Users)
-                .where(table_models_required.Users.company_key == actor.company_key)
-                .where(table_models_required.Users.role == "")
+                db.query(table_models_required.Users).where(
+                    table_models_required.Users.company_key == actor.company_key
+                )
+                # .where(table_models_required.Users.role == "")
                 .all()
             )
         case users_schemas.Roles.custom:
@@ -210,9 +182,10 @@ def get_all_users(
                     status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
                 )
             return (
-                db.query(table_models_required.Users)
-                .where(table_models_required.Users.company_key == actor.company_key)
-                .where(table_models_required.Users.role == "")
+                db.query(table_models_required.Users).where(
+                    table_models_required.Users.company_key == actor.company_key
+                )
+                # .where(table_models_required.Users.role == "")
                 .all()
             )
         case _:
