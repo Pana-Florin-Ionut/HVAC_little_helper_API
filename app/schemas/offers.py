@@ -76,7 +76,7 @@ class OffersRetrieve(BaseModel):
 class OffersCreateUser(BaseModel):
     client_key: str | None = None
     project_id: int
-    project_key: str | None = None
+    # project_key: str | None = None
     offer_name: str
     offer_key: str
 

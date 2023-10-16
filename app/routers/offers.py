@@ -151,7 +151,7 @@ def create_offer(
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
     try:
-        offer.project_key = get_project_key(offer.project_key, db)
+        project_key = get_project_key(offer.project_id, db)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -160,59 +160,44 @@ def create_offer(
 
     match user.role:
         case users_schemas.Roles.admin | users_schemas.Roles.user:
-            try:
-                new_offer = table_models_required.Offers(
-                    created_by=user.id,
-                    company_key=user.company_key,
-                    **offer.model_dump(),
-                )
-                db.add(new_offer)
-                db.commit()
-                db.refresh(new_offer)
-                return new_offer
-
-            except sqlalchemy.exc.IntegrityError as e:
-                db.rollback()
-                if e.orig.pgcode == "23505":
-                    raise HTTPException(
-                        status_code=status.HTTP_409_CONFLICT,
-                        detail="An offer with this name already exists",
-                    )
-            except Exception as e:
-                db.rollback()
-                print(e)
+            pass
+        case users_schemas.Roles.custom:
+            # print(offer)
+            if not user_permissions.can_create_offer(user.id, db):
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Bad request",
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
                 )
-    # print(offer)
-    if user_permissions.can_create_offer(user.id, db):
-        try:
-            new_offer = table_models_required.Offers(
-                created_by=user.id, company_key=user.company_key, **offer.model_dump()
-            )
-            db.add(new_offer)
-            db.commit()
-            db.refresh(new_offer)
-
-        except sqlalchemy.exc.IntegrityError as e:
-            if e.orig.pgcode == "23505":
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="An offer with this name already exists",
-                )
-        except Exception as e:
+        case _:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Bad request",
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authorized to perform this action",
             )
-
-        return new_offer
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authorized to perform this action",
+    try:
+        new_offer = table_models_required.Offers(
+            created_by=user.id,
+            company_key=user.company_key,
+            project_key=project_key,
+            **offer.model_dump(),
         )
+        db.add(new_offer)
+        db.commit()
+        db.refresh(new_offer)
+    except sqlalchemy.exc.IntegrityError as e:
+        db.rollback()
+        if e.orig.pgcode == "23505":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An offer with this name already exists",
+            )
+    except Exception as e:
+        db.rollback()
+        print(e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Bad request",
+        )
+
+    return new_offer
 
 
 @router.delete("/{offer_id}", status_code=status.HTTP_204_NO_CONTENT)

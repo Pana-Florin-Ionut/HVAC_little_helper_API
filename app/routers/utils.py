@@ -237,7 +237,7 @@ def get_company_details(company_id: int, db: Session = Depends(get_db)):
     return db.scalars(query).first()
 
 
-def get_project_key(project_id: int, db: Session = Depends(get_db)):
+def get_project_key(project_id: int, db: Session = Depends(get_db)) -> int:
     query = select(table_models_required.Projects.project_key).where(
         table_models_required.Projects.id == project_id
     )
