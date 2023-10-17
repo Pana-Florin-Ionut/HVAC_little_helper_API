@@ -129,7 +129,9 @@ def add_company_connection(
         )
     match user.role:
         case users_schemas.Roles.app_admin:
-            pass
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not implemented"
+            )
         case users_schemas.Roles.admin | users_schemas.Roles.user | users_schemas.Roles.manager:
             if not check_if_user_can_see_offer(
                 new_connection.offer_id, user.company_key, db
@@ -139,7 +141,7 @@ def add_company_connection(
                     detail="There is no offer with that id or you cannot view it",
                 )
         case users_schemas.Roles.custom:
-            if not user_permissions.can_view_user(user.id, db):
+            if not user_permissions.can_view_offer(user.id, db):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
                 )

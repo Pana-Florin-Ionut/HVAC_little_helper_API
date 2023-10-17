@@ -340,70 +340,143 @@ def update_project(
                 )
 
 
-# need redone, use project id and company key from user
-@router.delete("/{company_key}/{project_key}", status_code=status.HTTP_200_OK)
-def delete_project(
-    project_key: str,
-    company_key: str,
-    db: Session = Depends(get_db),
+@router.put("/admin/{product_id}", status_code=status.HTTP_200_OK)
+def update_project_id(
+    product_id: int,
+    update_project: schema_projects.ProjectUpdateAdmin,
     user: schema_users.UserOut = Depends(oauth2.get_current_user),
+    db: Session = Depends(get_db),
 ):
     match user.role:
         case users_schemas.Roles.app_admin:
-            if not project_exists_key(project_key, company_key, db):
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Project with key {project_key} for company {company_key} does not exist",
-                )
             try:
-                query = (
-                    delete(table_models_required.Projects)
-                    .where(table_models_required.Projects.project_key == project_key)
-                    .where(
-                        table_models_required.Projects.company.has(
-                            company_key=company_key
-                        )
+                project = db.get(table_models_required.Projects, product_id)
+                if not project:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Project with id {product_id} does not exist",
                     )
-                )
-                db.execute(query)
+                project.project_name = update_project.project_name
                 db.commit()
-                return {
-                    "message": f"Project with key {project_key} deleted successfully"
-                }
-            except Exception as e:
-                print(e)
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Error deleting project, please check your inputs",
-                )
-        case users_schemas.Roles.admin:
-            if not project_exists_key(project_key, db):
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Project with key {project_key} does not exist",
-                )
-            try:
-                query = (
-                    delete(table_models_required.Projects)
-                    .where(
-                        table_models_required.Projects.company_key == user.company_key
-                    )
-                    .where(table_models_required.Projects.project_key == project_key)
-                )
-                db.execute(query)
-                db.commit()
-                return {
-                    "message": f"Project with key {project_key} deleted successfully"
-                }
-            except Exception as e:
-                print(e)
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Error deleting project, please check your inputs",
-                )
+                db.refresh(project)
+                return project
+            except sqlalchemy.exc.IntegrityError as e:
+                # e.orig.pgcode == "23505" is the error code for unique constraint violation
 
+                if e.orig.pgcode == "23505":
+                    print("origin")
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"Project with name {project.project_name} already exists ",
+                    )
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+            )
+
+
+# need redone, use project id and company key from user
+# @router.delete("/{company_key}/{project_key}", status_code=status.HTTP_200_OK)
+# def delete_project(
+#     project_key: str,
+#     company_key: str,
+#     db: Session = Depends(get_db),
+#     user: schema_users.UserOut = Depends(oauth2.get_current_user),
+# ):
+#     match user.role:
+#         case users_schemas.Roles.app_admin:
+#             if not project_exists_key(project_key, company_key, db):
+#                 raise HTTPException(
+#                     status_code=status.HTTP_404_NOT_FOUND,
+#                     detail=f"Project with key {project_key} for company {company_key} does not exist",
+#                 )
+#             try:
+#                 query = (
+#                     delete(table_models_required.Projects)
+#                     .where(table_models_required.Projects.project_key == project_key)
+#                     .where(
+#                         table_models_required.Projects.company.has(
+#                             company_key=company_key
+#                         )
+#                     )
+#                 )
+#                 db.execute(query)
+#                 db.commit()
+#                 return {
+#                     "message": f"Project with key {project_key} deleted successfully"
+#                 }
+#             except Exception as e:
+#                 print(e)
+#                 raise HTTPException(
+#                     status_code=status.HTTP_400_BAD_REQUEST,
+#                     detail=f"Error deleting project, please check your inputs",
+#                 )
+#         case users_schemas.Roles.admin:
+#             if not project_exists_key(project_key, db):
+#                 raise HTTPException(
+#                     status_code=status.HTTP_404_NOT_FOUND,
+#                     detail=f"Project with key {project_key} does not exist",
+#                 )
+#             try:
+#                 query = (
+#                     delete(table_models_required.Projects)
+#                     .where(
+#                         table_models_required.Projects.company_key == user.company_key
+#                     )
+#                     .where(table_models_required.Projects.project_key == project_key)
+#                 )
+#                 db.execute(query)
+#                 db.commit()
+#                 return {
+#                     "message": f"Project with key {project_key} deleted successfully"
+#                 }
+#             except Exception as e:
+#                 print(e)
+#                 raise HTTPException(
+#                     status_code=status.HTTP_400_BAD_REQUEST,
+#                     detail=f"Error deleting project, please check your inputs",
+#                 )
+
+#         case _:
+#             raise HTTPException(
+#                 status_code=status.HTTP_401_UNAUTHORIZED,
+#                 detail="Not authorized to delete projects as an admin",
+#             )
+
+
+@router.delete("/admin/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_project_id(
+    project_id: int,
+    user: schema_users.UserOut = Depends(oauth2.get_current_user),
+    db: Session = Depends(get_db),
+):
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            project = db.get(table_models_required.Projects, project_id)
+            print(project)
+            if not project:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Project with id {project_id} does not exist",
+                )
+            try:
+                db.delete(project)
+                db.commit()
+                return {"message": f"Project with id {project_id} deleted successfully"}
+            except sqlalchemy.exc.IntegrityError as e:
+                print(e.orig.pgcode)
+                if e.orig.pgcode == "23503":
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"Project with id {project_id} have offers, please delete them, after delete the project",
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"There was a problem with your request, please contact your administration",
+                    )
         case _:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authorized to delete projects as an admin",
+                detail="Not authorized to delete projects",
             )

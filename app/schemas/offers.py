@@ -33,7 +33,7 @@ class Offers(BaseModel):
 
 class OffersSellersOutLite(BaseModel):
     id: int
-    client_key: str | None = None
+    # client_key: str | None = None
     company_key: str
     project_key: str
     offer_name: str
@@ -42,7 +42,7 @@ class OffersSellersOutLite(BaseModel):
 
 class OffersSellersOut(BaseModel):
     id: int
-    client_key: str | None = None
+    # client_key: str | None = None // Sellers shouldn't be able to see the client
     company_key: str
     project_key: str
     offer_name: str

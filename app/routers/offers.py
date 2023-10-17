@@ -150,14 +150,13 @@ def create_offer(
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
-    try:
-        project_key = get_project_key(offer.project_id, db)
-    except Exception as e:
+    project = db.get(table_models_required.Projects, offer.project_id)
+    if not project:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Project with the key {offer.project_key} does not exist",
+            detail=f"Project with the key {offer.project_id} does not exist",
         )
-
+    project_key = project.project_key
     match user.role:
         case users_schemas.Roles.admin | users_schemas.Roles.user:
             pass
@@ -206,15 +205,17 @@ def delete_offer_id(
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
+    offer = db.get(table_models_required.Offers, offer_id)
+    if not offer:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Offer with id {offer_id} does not exist",
+        )
     match user.role:
         case users_schemas.Roles.app_admin:
             try:
-                query = select(table_models_required.Offers).where(
-                    table_models_required.Offers.id == offer_id
-                )
-                db.delete(db.scalars(query).first())
+                db.delete(offer)
                 db.commit()
-
             except Exception as e:
                 print(e)
                 raise HTTPException(
@@ -372,8 +373,12 @@ async def offers(
             query = query.filter(
                 table_models_required.CompanyConnections.friend_id == user.company.id,
             )
+    result = db.scalars(query).all()
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Offer not found"
+        )
     try:
-        result = db.scalars(query).all()
         return result
     except Exception as e:
         raise HTTPException(
