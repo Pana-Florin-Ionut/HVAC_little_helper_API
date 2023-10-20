@@ -726,6 +726,7 @@ def delete_price(
     """
     Function need to check if the user was the creator of the price
     """
+    # need redone as DELETE "/admin/product_id"
     query = delete(table_models_required.OfferPrices).where(
         table_models_required.OfferPrices.offer_product_id == product_id
     )
@@ -758,30 +759,25 @@ def delete_price(
     db.commit()
 
 
-@router.delete(
-    "admin/{product_id}/{company_id}", status_code=status.HTTP_204_NO_CONTENT
-)
-def admin_delete_price(
-    product_id: int,
-    company_id: int,
-    db: Session = Depends(get_db),
+@router.delete("/admin/{price_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_price_admin(
+    price_id: int,
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+    db: Session = Depends(get_db),
 ):
+    """
+    Function need to check if the user was the creator of the price
+    """
+    price = db.get(table_models_required.OfferPrices, price_id)
+    if not price:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     match user.role:
         case users_schemas.Roles.app_admin:
             pass
         case _:
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Not authorised")
-
-    query = (
-        delete(table_models_required.OfferPrices)
-        .where(table_models_required.OfferPrices.offer_product_id == product_id)
-        .where(table_models_required.OfferPrices.offering_company == company_id)
-    )
-    response = db.execute(query)
-    if response.rowcount == 0:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Product with the id {product_id} for company with id{company_id} does not exist",
-        )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized",
+            )
+    db.delete(price)
     db.commit()

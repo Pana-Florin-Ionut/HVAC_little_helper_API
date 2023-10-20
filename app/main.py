@@ -19,6 +19,18 @@ from .routers import (
 )
 
 from . import table_models_required
+from fastapi.middleware.cors import CORSMiddleware
+
+origins = [
+    "http://localhost.tiangolo.com",
+    "https://localhost.tiangolo.com",
+    "http://localhost",
+    "http://localhost:8080",
+    # "http://http://localhost:5173",
+    "http://localhost:5173/",
+    "http://localhost:5173",
+]
+
 
 table_models_required.Base.metadata.create_all(bind=engine)
 
@@ -27,6 +39,15 @@ offers_table = "offers"
 
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    # allow_origins=["*"],
+    allow_origins=origins,
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(projects.router)
 app.include_router(companies.router)
