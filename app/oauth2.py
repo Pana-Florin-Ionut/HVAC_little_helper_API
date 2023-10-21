@@ -32,12 +32,12 @@ def verify_access_token(token: str, credentials_exception):
         payload = jwt.decode(token, secret_key, algorithms=[algorithm])
         # print(payload)
         id: str = payload.get("user_id")
-        # company_id: str = payload.get("company_id")
-        # role: str = payload.get("role")
+        company_id: str = payload.get("company_id")
+        role: str = payload.get("role")
         if id is None:
             raise credentials_exception
-        token_data = schemas.TokenData(id=id)  # can add other data to the token
-        # token_data = schemas.TokenData(id=id, company_id=company_id, role=role)
+        # token_data = schemas.TokenData(id=id)  # can add other data to the token
+        token_data = schemas.TokenData(id=id, company_id=company_id, role=role)
         return token_data
     except JWTError:
         raise credentials_exception
