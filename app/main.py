@@ -22,13 +22,15 @@ from . import table_models_required
 from fastapi.middleware.cors import CORSMiddleware
 
 origins = [
-    "http://localhost.tiangolo.com",
-    "https://localhost.tiangolo.com",
+    # "http://localhost.tiangolo.com",
+    # "https://localhost.tiangolo.com",
     "http://localhost",
     "http://localhost:8080",
     # "http://http://localhost:5173",
     "http://localhost:5173/",
     "http://localhost:5173",
+    "http://localhost:5173/login",
+    "http://localhost:4173",
 ]
 
 
@@ -61,5 +63,5 @@ app.include_router(products.router)
 
 
 @app.get("/")
-async def root(db: Session = Depends(get_db)):
+def root(db: Session = Depends(get_db)):
     return {"message": "Hello World"}

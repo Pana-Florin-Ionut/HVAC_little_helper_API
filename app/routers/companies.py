@@ -67,6 +67,21 @@ def get_companies(
             )
 
 
+@router.get("/{company_id}", response_model=companies_schema.CompanyOut)
+def get_company(
+    company_id: int,
+    db: Session = Depends(get_db),
+    user: users_schemas.UserOut = Depends(oauth2.get_current_user),
+):
+    match user.role:
+        case users_schemas.Roles.app_admin:
+            return get_company_details(company_id, db)
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+            )
+
+
 @router.post(
     "", status_code=status.HTTP_201_CREATED, response_model=companies_schema.CompanyOut
 )
@@ -100,7 +115,7 @@ def create_company(
                 )
         case users_schemas.Roles.test:
             try:
-                company = company.dict()
+                company = company.model_dump()
                 company["is_verified"] = True
                 db_company = table_models_required.Companies(**company)
                 db.add(db_company)
@@ -181,3 +196,7 @@ def update_company(
             db.commit()
             db.refresh(company)
             return company
+        case _:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized"
+            )
