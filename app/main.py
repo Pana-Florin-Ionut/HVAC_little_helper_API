@@ -37,7 +37,7 @@ origins = [
 table_models_required.Base.metadata.create_all(bind=engine)
 
 
-offers_table = "offers"
+# offers_table = "offers"
 
 
 app = FastAPI()

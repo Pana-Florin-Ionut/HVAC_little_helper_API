@@ -182,13 +182,14 @@ def delete_company(
             )
 
 
-@router.put("/{company_id}", status_code=status.HTTP_202_ACCEPTED)
+@router.put("/{company_id}", status_code=status.HTTP_200_OK)
 def update_company(
     company_id: int,
     updaded_company: companies_schema.CompanyUpdate,
     db: Session = Depends(get_db),
     user: users_schemas.UserOut = Depends(oauth2.get_current_user),
 ):
+    # Only company name can be updated
     match user.role:
         case users_schemas.Roles.app_admin:
             company: companies_schema.CompanyOut = get_company_details(company_id, db)
